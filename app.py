@@ -73,28 +73,106 @@ BASELINE_THROUGH_SEP30 = {
 }
 
 DEFAULT_TARGETS = [
-    ("Ajas", "S.K. Payeen", 990),
-    ("Bandipora", "Brar", 1100),
-    ("Bandipora", "Chak Arsala Khan", 638),
-    ("Bandipora", "Chak Reshipora", 235),
-    ("Bandipora", "Chandaji", 279),
+    ("Ajas", "Ajas", 2912),
+    ("Ajas", "S.K. Payeen", 718),
+    ("Aloosa", "Ashtangoo", 1472),
+    ("Aloosa", "Mangnipora", 1918),
+    ("Bandipora", "Ahemshreif", 444),
+    ("Bandipora", "Aragam", 1358),
+    ("Bandipora", "Athwatoo", 645),
+    ("Bandipora", "Ayatmulla", 821),
+    ("Bandipora", "Bhutto", 362),
+    ("Bandipora", "Brar", 640),
+    ("Bandipora", "Chak Arsala Khan", 482),
+    ("Bandipora", "Chak Reshipora", 195),
+    ("Bandipora", "Chandaji", 186),
+    ("Bandipora", "Chuntimulla", 1051),
+    ("Bandipora", "Dachigam", 295),
+    ("Bandipora", "Gamroo", 660),
+    ("Bandipora", "Garoora", 1388),
+    ("Bandipora", "Gund Dachina", 699),
+    ("Bandipora", "Gundi Qasier", 465),
+    ("Bandipora", "Gundipora Rampora", 1082),
+    ("Bandipora", "Kharpora", 531),
+    ("Bandipora", "Khayar", 899),
+    ("Bandipora", "Kudara", 986),
     ("Bandipora", "Labkachal", 136),
-    ("Bandipora", "Shamthan", 248),
-    ("Bandipora", "Weven", 560),
-    ("Gurez", "Koragbal", 123),
-    ("Hajin", "Gulabwari", 21),
-    ("Hajin", "Gund-i-Balkh", 430),
-    ("Hajin", "Gund-i-Ramzan", 10),
-    ("Hajin", "Tangpora", 242),
-    ("Sonawari", "Gund i Nowgam", 838),
-    ("Sonawari", "Malik Pora", 410),
-    ("Sonawari", "Najin", 616),
-    ("Sonawari", "Zal Pora", 853),
-    ("Tulail", "Abdullian", 258),
-    ("Tulail", "Manz Gund", 203),
-    ("Tulail", "Wazirthal", 121),
-    ("Tulail", "Kilshay Payeen", 425),
-    ("Tulail", "Puranatulail", 247),
+    ("Bandipora", "Lawaypora", 1118),
+    ("Bandipora", "Lowdara", 540),
+    ("Bandipora", "Nadihal", 1230),
+    ("Bandipora", "Nass", 514),
+    ("Bandipora", "Onagam", 1857),
+    ("Bandipora", "Panjigam", 992),
+    ("Bandipora", "Papachan", 515),
+    ("Bandipora", "Shamthan", 196),
+    ("Bandipora", "Soner Wani", 1058),
+    ("Bandipora", "Takiya Ahmad Shah", 355),
+    ("Bandipora", "Watapora", 1209),
+    ("Bandipora", "Weven", 377),
+    ("Gurez", "Badwan", 1213),
+    ("Gurez", "Dawar", 670),
+    ("Gurez", "Gulshanpora", 847),
+    ("Gurez", "Kanzalwan Nail", 571),
+    ("Gurez", "Khandiyal", 632),
+    ("Gurez", "Koragbal", 111),
+    ("Gurez", "Markoot", 586),
+    ("Gurez", "Mastan Khopri", 421),
+    ("Gurez", "Shah Pora - Achoora (Churwan)", 1114),
+    ("Hajin", "Gulabwari", 28),
+    ("Hajin", "Gulshanpora", 821),
+    ("Hajin", "Gund i Prang", 785),
+    ("Hajin", "Gund-i-Balkh", 322),
+    ("Hajin", "Gund-i-Ramzan", 11),
+    ("Hajin", "Gundi Boon", 754),
+    ("Hajin", "Gundi Jahangir", 1017),
+    ("Hajin", "Gundi Saderkote", 2139),
+    ("Hajin", "Kani Pora", 427),
+    ("Hajin", "Kosumbagh", 0),
+    ("Hajin", "Madwan", 777),
+    ("Hajin", "Poshwari", 1176),
+    ("Hajin", "Rakh i Hajin", 1107),
+    ("Hajin", "Sari Hari Karan Gund", 529),
+    ("Hajin", "Tangpora", 220),
+    ("Hajin", "Vijipara", 1269),
+    ("Hajin", "Zoonipora", 465),
+    ("Sumbal", "Asham", 1296),
+    ("Sumbal", "Chewa", 1116),
+    ("Sumbal", "Gaad Khud", 674),
+    ("Sumbal", "Ganastan", 1560),
+    ("Sumbal", "Gund i Khalil", 1308),
+    ("Sumbal", "Gund i Nowgam", 587),
+    ("Sumbal", "Hilalabad", 1164),
+    ("Sumbal", "Malik Pora", 347),
+    ("Sumbal", "Najin", 404),
+    ("Sumbal", "Nowgam", 941),
+    ("Sumbal", "Odina", 1006),
+    ("Sumbal", "Rakh Shilvat", 2692),
+    ("Sumbal", "Rakh Sultan Pora", 1973),
+    ("Sumbal", "Sarai Dangarpora", 2149),
+    ("Sumbal", "Shadi Pora", 781),
+    ("Sumbal", "Shilvat", 767),
+    ("Sumbal", "Sumbal Inderkote", 849),
+    ("Sumbal", "Trigam", 1399),
+    ("Sumbal", "Wahid pora", 884),
+    ("Sumbal", "Zal Pora", 602),
+    ("Tulail", "Abdullian", 213),
+    ("Tulail", "Baduaab", 502),
+    ("Tulail", "Barnaie", 234),
+    ("Tulail", "Budugam", 648),
+    ("Tulail", "Buglinder", 397),
+    ("Tulail", "Dengithal", 187),
+    ("Tulail", "Gujran", 450),
+    ("Tulail", "Gund Gul Sheikh", 157),
+    ("Tulail", "Hussangam", 265),
+    ("Tulail", "Jurnial", 446),
+    ("Tulail", "Kilshay Payeen", 205),
+    ("Tulail", "Malangam", 208),
+    ("Tulail", "Manz Gund", 181),
+    ("Tulail", "Neeru", 443),
+    ("Tulail", "Puranatulail", 208),
+    ("Tulail", "Saradaab", 459),
+    ("Tulail", "Wazirthal", 116),
+    ("Tulail", "Zedgey", 132),
 ]
 
 TEHSIL_REFERENCE = {
@@ -383,11 +461,20 @@ def effective_targets():
     return out
 
 def effective_camp_directors():
-    """Return merged camp-director map keyed by norm_key -> {n,p,t,v}."""
+    """Return merged camp-director map keyed by norm_key -> {n,p,t,v}.
+    Entries whose name is 'NA' / 'N/A' (any case) are treated as 'no director'
+    and dropped — the user uses NA as a placeholder for 'not yet assigned'.
+    """
     merged = {k: dict(v) for k, v in CAMP_DIRECTORS_59.items()}
     for k, v in load_cd_overrides().items():
         merged[k] = v
-    return merged
+    # Filter out NA placeholders — those villages won't appear in CD views.
+    out = {}
+    for k, v in merged.items():
+        name = (v.get("n") or "").strip().upper()
+        if name and name not in ("NA", "N/A", "NOT AVAILABLE"):
+            out[k] = v
+    return out
 
 def camp_director_for(tehsil, village):
     """Overridden version — reads live overrides, not just baked-in."""
@@ -397,10 +484,14 @@ def camp_director_for(tehsil, village):
 def build_nested_structure():
     cumulative, per_date, sorted_dates, errors = build_state()
 
-    # Target map — DEFAULT_TARGETS + any overrides from data/targets.json
-    targets = {}
+    # Target map — DEFAULT_TARGETS + any overrides from data/targets.json.
+    # Keep display spellings alongside targets.
+    targets = {}  # norm_key -> target
+    display = {}  # norm_key -> (display_tehsil, display_village)
     for t, v, tg in effective_targets():
-        targets[norm_key(t, v)] = tg
+        k = norm_key(t, v)
+        targets[k] = tg
+        display[k] = (t, v)
 
     # Build village rows: union of (targets ∪ cumulative)
     villages = {}
@@ -418,9 +509,8 @@ def build_nested_structure():
                 "campDirector": camp_director_for(rec["tehsil"], rec["village"]),
             }
         else:
-            # Target with no data yet — baseline fallback
-            parts = key.split("||")
-            # Try to find a baseline entry under either tehsil spelling
+            # Target with no data yet — baseline fallback with proper display names
+            disp_t, disp_v = display.get(key, (key.split("||")[0], key.split("||")[1] if "||" in key else ""))
             iss_b, app_b = 0, 0
             for raw_key, (ib, ab) in BASELINE_THROUGH_SEP30.items():
                 rt, rv = raw_key.split("||")
@@ -428,11 +518,11 @@ def build_nested_structure():
                     iss_b, app_b = ib, ab
                     break
             villages[key] = {
-                "tehsil": parts[0], "village": parts[1], "target": tgt,
+                "tehsil": disp_t, "village": disp_v, "target": tgt,
                 "issued": iss_b, "approved": app_b,
                 "issuedBaseline": iss_b, "approvedBaseline": app_b,
-                "firstBucket": is_first_bucket(parts[1]),
-                "campDirector": camp_director_for(parts[0], parts[1]),
+                "firstBucket": is_first_bucket(disp_v),
+                "campDirector": camp_director_for(disp_t, disp_v),
             }
 
     for key, rec in cumulative.items():
@@ -653,6 +743,7 @@ def edit_targets():
     saved = False
     if request.method == "POST":
         new_overrides = {}
+        # 1) Existing-row edits: fields named "target::<norm_key>"
         for key, val in request.form.items():
             if not key.startswith("target::"):
                 continue
@@ -664,6 +755,17 @@ def edit_targets():
             if n < 0:
                 continue
             new_overrides[vk] = n
+        # 2) Add-new-village row: "new_tehsil", "new_village", "new_target"
+        nt = (request.form.get("new_tehsil") or "").strip()
+        nv = (request.form.get("new_village") or "").strip()
+        nvt = (request.form.get("new_target") or "").strip()
+        if nt and nv:
+            try:
+                ntg = int(nvt or 0)
+                if ntg >= 0:
+                    new_overrides[norm_key(nt, nv)] = ntg
+            except ValueError:
+                error = "New village target must be a number."
         # Write to disk + commit
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(TARGETS_OVERRIDE_FILE, "w", encoding="utf-8") as f:
@@ -677,16 +779,33 @@ def edit_targets():
                 error = "Saved locally but GitHub push failed: {}".format(e)
         else:
             saved = True
-    # Build row list for display
+    # Build row list for display: defaults + any override-only (added) villages
     overrides = load_targets_overrides()
     rows = []
+    seen = set()
     for t, v, tg in DEFAULT_TARGETS:
         k = norm_key(t, v)
+        seen.add(k)
         rows.append({
             "key": k, "tehsil": t, "village": v,
             "default": tg,
             "current": overrides.get(k, tg),
-            "overridden": k in overrides,
+            "overridden": k in overrides and overrides[k] != tg,
+            "added": False,
+        })
+    # Admin-added villages (keys only in overrides)
+    for k, cur in overrides.items():
+        if k in seen:
+            continue
+        parts = k.split("||", 1)
+        t = parts[0].title() if len(parts) == 2 else k
+        v = parts[1].title() if len(parts) == 2 else ""
+        rows.append({
+            "key": k, "tehsil": t, "village": v,
+            "default": "—",
+            "current": cur,
+            "overridden": True,
+            "added": True,
         })
     rows.sort(key=lambda r: (r["tehsil"], r["village"]))
     return render_template("edit_targets.html",
@@ -700,19 +819,40 @@ def edit_targets():
 def edit_camp_directors():
     error = None
     saved = False
+    existing_overrides = load_cd_overrides()
+    # Keys we know about (baked-in + already-added overrides)
+    known_keys = set(CAMP_DIRECTORS_59.keys()) | set(existing_overrides.keys())
     if request.method == "POST":
         new_overrides = {}
-        for k, default in CAMP_DIRECTORS_59.items():
+        # 1) Edits to existing rows (baked-in or previously added)
+        for k in known_keys:
             n_key = "cdname::" + k
             p_key = "cdphone::" + k
+            if n_key not in request.form:
+                continue
             name = request.form.get(n_key, "").strip()
             phone = request.form.get(p_key, "").strip()
             if not name:
+                # blank name = revert to default (if baked-in) or drop (if added)
                 continue
-            if name == default["n"] and phone == default["p"]:
-                continue  # unchanged — don't write an override
-            new_overrides[k] = {"n": name, "p": phone,
-                                "t": default["t"], "v": default["v"]}
+            # Determine the display tehsil/village for this key
+            default = CAMP_DIRECTORS_59.get(k) or existing_overrides.get(k, {})
+            tehsil = default.get("t", k.split("||")[0] if "||" in k else "")
+            village = default.get("v", k.split("||")[1] if "||" in k else "")
+            # For baked-in: skip writing if unchanged from default
+            if k in CAMP_DIRECTORS_59:
+                d = CAMP_DIRECTORS_59[k]
+                if name == d["n"] and phone == d.get("p", ""):
+                    continue
+            new_overrides[k] = {"n": name, "p": phone, "t": tehsil, "v": village}
+        # 2) Add-new row: new_tehsil + new_village + new_cdname + new_cdphone
+        nt = (request.form.get("new_tehsil") or "").strip()
+        nv = (request.form.get("new_village") or "").strip()
+        nn = (request.form.get("new_cdname") or "").strip()
+        np_ = (request.form.get("new_cdphone") or "").strip()
+        if nt and nv and nn:
+            nk = norm_key(nt, nv)
+            new_overrides[nk] = {"n": nn, "p": np_, "t": canonical_tehsil(nt) or nt.upper(), "v": nv}
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(CD_OVERRIDE_FILE, "w", encoding="utf-8") as f:
             json.dump(new_overrides, f, indent=2, sort_keys=True)
@@ -725,19 +865,25 @@ def edit_camp_directors():
                 error = "Saved locally but GitHub push failed: {}".format(e)
         else:
             saved = True
-    overrides = load_cd_overrides()
+        existing_overrides = load_cd_overrides()
+        known_keys = set(CAMP_DIRECTORS_59.keys()) | set(existing_overrides.keys())
+    # Build row list: baked-in first (sorted), then admin-added villages
     rows = []
     for k, default in sorted(CAMP_DIRECTORS_59.items()):
-        cur = overrides.get(k, default)
+        cur = existing_overrides.get(k, default)
         rows.append({
-            "key": k,
-            "tehsil": default["t"],
-            "village": default["v"],
-            "name": cur["n"],
-            "phone": cur.get("p", ""),
-            "default_name": default["n"],
-            "default_phone": default.get("p", ""),
-            "overridden": k in overrides,
+            "key": k, "tehsil": default["t"], "village": default["v"],
+            "name": cur["n"], "phone": cur.get("p", ""),
+            "overridden": k in existing_overrides, "added": False,
+        })
+    for k, cur in sorted(existing_overrides.items()):
+        if k in CAMP_DIRECTORS_59:
+            continue
+        rows.append({
+            "key": k, "tehsil": cur.get("t", k.split("||")[0]),
+            "village": cur.get("v", k.split("||")[1] if "||" in k else ""),
+            "name": cur.get("n", ""), "phone": cur.get("p", ""),
+            "overridden": True, "added": True,
         })
     return render_template("edit_camp_directors.html",
                            rows=rows, error=error, saved=saved)

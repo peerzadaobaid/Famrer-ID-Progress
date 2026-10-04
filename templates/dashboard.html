@@ -495,7 +495,14 @@ function cdCollect(){
   var out=[];
   for(var i=0;i<DATA.tehsils.length;i++){
     var t=DATA.tehsils[i]; var vs=[];
-    for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; if(v.campDirector&&v.campDirector.n) vs.push({village:v.village,target:v.target,issued:v.issued,approved:v.approved,issuedBaseline:v.issuedBaseline||0,datedCounts:v.datedCounts||{},dir:{name:v.campDirector.n,phone:v.campDirector.p||''}}); }
+    for(var j=0;j<t.villages.length;j++){
+      var v=t.villages[j];
+      if(!(v.campDirector && v.campDirector.n)) continue;
+      // Treat 'NA' / 'N/A' / 'Not Available' as 'no director assigned' — skip.
+      var nUpper = String(v.campDirector.n).trim().toUpperCase();
+      if (nUpper === 'NA' || nUpper === 'N/A' || nUpper === 'NOT AVAILABLE') continue;
+      vs.push({village:v.village,target:v.target,issued:v.issued,approved:v.approved,issuedBaseline:v.issuedBaseline||0,datedCounts:v.datedCounts||{},dir:{name:v.campDirector.n,phone:v.campDirector.p||''}});
+    }
     if(vs.length) out.push({tehsil:t.tehsil,villages:vs});
   }
   return out;

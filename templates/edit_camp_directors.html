@@ -18,11 +18,11 @@
   {% if error %}<div class="err">⚠ {{ error }}</div>{% endif %}
 
   <div class="card">
-    <p>Edit the <b>Director</b> and <b>Phone</b> fields for any village. Only changed rows are kept as overrides — leave a row untouched to keep the default. Blank the Director field to revert that row to default on save.</p>
+    <p>Edit the <b>Director</b> and <b>Phone</b> fields. If a village doesn't have a director assigned yet, enter <b>NA</b> as the name — it'll be treated as "not available" and that village won't appear in the Camp Director Progress view until a real name is filled in. Villages that share the same director name within a tehsil are automatically grouped together in the progress view. To add a village not listed here (e.g. one that appears in a new CSV), use the <b>Add new village</b> row at the bottom.</p>
     <form method="POST">
       <table class="admin">
         <thead>
-          <tr><th>#</th><th>Tehsil</th><th>Village</th><th>Director</th><th style="width:140px">Phone</th><th>&nbsp;</th></tr>
+          <tr><th>#</th><th>Tehsil</th><th>Village</th><th>Director (or NA)</th><th style="width:140px">Phone</th><th>&nbsp;</th></tr>
         </thead>
         <tbody>
           {% for r in rows %}
@@ -32,9 +32,17 @@
             <td><strong>{{ r.village }}</strong></td>
             <td><input type="text" name="cdname::{{ r.key }}" value="{{ r.name }}"></td>
             <td><input type="text" name="cdphone::{{ r.key }}" value="{{ r.phone }}"></td>
-            <td>{% if r.overridden %}<span style="color:#a86416;font-size:11px">overridden</span>{% endif %}</td>
+            <td>{% if r.added %}<span style="color:#2a6b35;font-size:11px">added</span>{% elif r.overridden %}<span style="color:#a86416;font-size:11px">overridden</span>{% endif %}</td>
           </tr>
           {% endfor %}
+          <tr style="background:#eef5fb; border-top:2px solid #c7d6ea">
+            <td style="font-weight:700;color:#305496">+</td>
+            <td><input type="text" name="new_tehsil" placeholder="Tehsil" style="width:100%"></td>
+            <td><input type="text" name="new_village" placeholder="Village name" style="width:100%"></td>
+            <td><input type="text" name="new_cdname" placeholder="Director name (or NA)" style="width:100%"></td>
+            <td><input type="text" name="new_cdphone" placeholder="Phone (optional)" style="width:100%"></td>
+            <td><span style="color:#305496;font-size:11px">Add new village</span></td>
+          </tr>
         </tbody>
       </table>
       <div style="margin-top: 18px; display: flex; gap: 10px;">
