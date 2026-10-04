@@ -460,6 +460,25 @@ def effective_targets():
             out.append((parts[0].title(), parts[1].title(), tg))
     return out
 
+def villages_seen_in_uploads():
+    """Scan every daily snapshot CSV in data/ and return a dict keyed by
+    norm_key -> {tehsil, village} for villages that have ever appeared in a
+    snapshot. Used by admin pages to surface villages that showed up in a CSV
+    but aren't yet in DEFAULT_TARGETS or CAMP_DIRECTORS_59, so an admin can
+    quickly assign targets / directors to them.
+    """
+    seen = {}
+    for date, path in discover_snapshots():
+        try:
+            counts = parse_snapshot_csv(path)
+        except Exception:
+            continue
+        for key, rec in counts.items():
+            # Keep first-seen display spelling
+            if key not in seen:
+                seen[key] = {"tehsil": rec["tehsil"], "village": rec["village"]}
+    return seen
+
 def effective_camp_directors():
     """Return merged camp-director map keyed by norm_key -> {n,p,t,v}.
     Entries whose name is 'NA' / 'N/A' (any case) are treated as 'no director'
@@ -755,7 +774,21 @@ def edit_targets():
             if n < 0:
                 continue
             new_overrides[vk] = n
-        # 2) Add-new-village row: "new_tehsil", "new_village", "new_target"
+        # 2) "Unknown" villages (from CSVs) that admin assigned targets to.
+        for key, val in request.form.items():
+            if not key.startswith("unknown_target::"):
+                continue
+            vk = key[len("unknown_target::"):]
+            v = (val or "").strip()
+            if not v:
+                continue
+            try:
+                n = int(v)
+                if n >= 0:
+                    new_overrides[vk] = n
+            except ValueError:
+                continue
+        # 3) Blank "add new village" row at the very bottom.
         nt = (request.form.get("new_tehsil") or "").strip()
         nv = (request.form.get("new_village") or "").strip()
         nvt = (request.form.get("new_target") or "").strip()
@@ -808,8 +841,17 @@ def edit_targets():
             "added": True,
         })
     rows.sort(key=lambda r: (r["tehsil"], r["village"]))
+    # Villages seen in uploaded CSVs but not yet in any target row.
+    all_known = seen | set(overrides.keys())
+    unknown = []
+    for k, info in villages_seen_in_uploads().items():
+        if k in all_known:
+            continue
+        unknown.append({"key": k, "tehsil": info["tehsil"], "village": info["village"]})
+    unknown.sort(key=lambda r: (r["tehsil"], r["village"]))
     return render_template("edit_targets.html",
-                           rows=rows, error=error, saved=saved)
+                           rows=rows, unknown=unknown,
+                           error=error, saved=saved)
 
 
 # ---- Edit camp directors (admin) -----------------------------------------
@@ -845,7 +887,22 @@ def edit_camp_directors():
                 if name == d["n"] and phone == d.get("p", ""):
                     continue
             new_overrides[k] = {"n": name, "p": phone, "t": tehsil, "v": village}
-        # 2) Add-new row: new_tehsil + new_village + new_cdname + new_cdphone
+        # 2) "Unknown" villages (from CSVs) that admin assigned directors to.
+        posted_unknown_keys = set()
+        for key in request.form.keys():
+            if key.startswith("unknown_cdname::"):
+                posted_unknown_keys.add(key[len("unknown_cdname::"):])
+        for vk in posted_unknown_keys:
+            name = (request.form.get("unknown_cdname::" + vk) or "").strip()
+            phone = (request.form.get("unknown_cdphone::" + vk) or "").strip()
+            disp_t = (request.form.get("unknown_tehsil::" + vk) or "").strip()
+            disp_v = (request.form.get("unknown_village::" + vk) or "").strip()
+            if not name:
+                continue
+            new_overrides[vk] = {"n": name, "p": phone,
+                                 "t": canonical_tehsil(disp_t) or disp_t.upper(),
+                                 "v": disp_v}
+        # 3) Blank "add new village" row at the very bottom.
         nt = (request.form.get("new_tehsil") or "").strip()
         nv = (request.form.get("new_village") or "").strip()
         nn = (request.form.get("new_cdname") or "").strip()
@@ -885,8 +942,17 @@ def edit_camp_directors():
             "name": cur.get("n", ""), "phone": cur.get("p", ""),
             "overridden": True, "added": True,
         })
+    # Villages that appeared in uploaded CSVs but have no director entry yet.
+    all_known_cd = set(CAMP_DIRECTORS_59.keys()) | set(existing_overrides.keys())
+    unknown = []
+    for k, info in villages_seen_in_uploads().items():
+        if k in all_known_cd:
+            continue
+        unknown.append({"key": k, "tehsil": info["tehsil"], "village": info["village"]})
+    unknown.sort(key=lambda r: (r["tehsil"], r["village"]))
     return render_template("edit_camp_directors.html",
-                           rows=rows, error=error, saved=saved)
+                           rows=rows, unknown=unknown,
+                           error=error, saved=saved)
 
 def commit_to_github(local_path, repo_path, message):
     """Push a file to GitHub via API. Requires GH_TOKEN + GH_REPO env vars.

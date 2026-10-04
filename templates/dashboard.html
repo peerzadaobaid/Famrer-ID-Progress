@@ -401,8 +401,23 @@
 <script>
 const DATA = {{ state | tojson }};
 
-var addFrom = DATA.minDate || DATA.baselineDate;
-var addTo   = DATA.maxDate || DATA.baselineDate;
+// Default date range: last two snapshot dates (most recent single-day additions).
+// Fall back to full range when fewer than two snapshots exist.
+var addFrom, addTo;
+(function pickDefaultRange() {
+  var snaps = (DATA.snapshotDates || []).slice();  // dates after baseline, chronological
+  if (snaps.length >= 2) {
+    addFrom = snaps[snaps.length - 2];
+    addTo   = snaps[snaps.length - 1];
+  } else if (snaps.length === 1) {
+    // One upload only — show additions from baseline → that upload.
+    addFrom = DATA.baselineDate;
+    addTo   = snaps[0];
+  } else {
+    addFrom = DATA.minDate || DATA.baselineDate;
+    addTo   = DATA.maxDate || DATA.baselineDate;
+  }
+})();
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function pctClass(p){ return p===0?'pct-zero':p<30?'pct-low':p<70?'pct-medium':'pct-good'; }

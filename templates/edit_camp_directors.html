@@ -6,7 +6,7 @@
 {{ base_styles() }}
 </head><body>
 <div class="header"><div class="header-inner">
-  <div><h1>Camp Directors</h1><div class="sub">Camp director name and phone for each of the 59 non-first-bucket villages.</div></div>
+  <div><h1>Camp Directors</h1><div class="sub">Camp director name and phone per village. Share the same name across villages in a tehsil to group them.</div></div>
   <div class="nav">
     <a href="{{ url_for('admin_home') }}">← Admin</a>
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -18,8 +18,32 @@
   {% if error %}<div class="err">⚠ {{ error }}</div>{% endif %}
 
   <div class="card">
-    <p>Edit the <b>Director</b> and <b>Phone</b> fields. If a village doesn't have a director assigned yet, enter <b>NA</b> as the name — it'll be treated as "not available" and that village won't appear in the Camp Director Progress view until a real name is filled in. Villages that share the same director name within a tehsil are automatically grouped together in the progress view. To add a village not listed here (e.g. one that appears in a new CSV), use the <b>Add new village</b> row at the bottom.</p>
+    <p>Enter <b>NA</b> as the Director to mark a village as "not yet assigned" — those rows do <em>not</em> appear in the Camp Director Progress view. Two villages in the same tehsil with the same director name are automatically grouped together. Villages that showed up in uploaded CSVs but have no director entry are highlighted in orange at the top — assign one and they merge into the view.</p>
     <form method="POST">
+
+      {% if unknown %}
+      <h3 style="margin:8px 0 10px 0;color:#a86416;font-size:14px">⚠ Villages seen in CSVs with no director yet ({{ unknown|length }})</h3>
+      <table class="admin" style="margin-bottom:20px">
+        <thead>
+          <tr><th>#</th><th>Tehsil</th><th>Village</th><th>Director (or NA)</th><th style="width:140px">Phone</th></tr>
+        </thead>
+        <tbody>
+          {% for u in unknown %}
+          <tr style="background:#fff8ee">
+            <td>{{ loop.index }}</td>
+            <td>{{ u.tehsil }}</td>
+            <td><strong>{{ u.village }}</strong></td>
+            <td><input type="text" name="unknown_cdname::{{ u.key }}" placeholder="(no director)"></td>
+            <td><input type="text" name="unknown_cdphone::{{ u.key }}" placeholder="(optional)"></td>
+            <input type="hidden" name="unknown_tehsil::{{ u.key }}" value="{{ u.tehsil }}">
+            <input type="hidden" name="unknown_village::{{ u.key }}" value="{{ u.village }}">
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      <h3 style="margin:8px 0 10px 0;color:#1a3a5c;font-size:14px">All camp-director assignments ({{ rows|length }})</h3>
       <table class="admin">
         <thead>
           <tr><th>#</th><th>Tehsil</th><th>Village</th><th>Director (or NA)</th><th style="width:140px">Phone</th><th>&nbsp;</th></tr>

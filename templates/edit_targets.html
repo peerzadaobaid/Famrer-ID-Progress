@@ -18,8 +18,29 @@
   {% if error %}<div class="err">⚠ {{ error }}</div>{% endif %}
 
   <div class="card">
-    <p>Edit the <b>Target</b> column for any village. To add a village not in this list (e.g. one that appears in a new CSV), fill the <b>Add new village</b> row at the bottom. Overridden and admin-added rows are shaded.</p>
+    <p>Edit the <b>Target</b> for any village. If villages appear in CSV uploads that aren't in defaults, they're highlighted in orange at the top — fill a target for each one you want to track. Use the <b>Add new village</b> row at the bottom to add a village that hasn't appeared in any CSV yet.</p>
     <form method="POST">
+
+      {% if unknown %}
+      <h3 style="margin:8px 0 10px 0;color:#a86416;font-size:14px">⚠ Villages seen in CSVs with no target yet ({{ unknown|length }})</h3>
+      <table class="admin" style="margin-bottom:20px">
+        <thead>
+          <tr><th>#</th><th>Tehsil</th><th>Village</th><th style="text-align:right">Target</th></tr>
+        </thead>
+        <tbody>
+          {% for u in unknown %}
+          <tr style="background:#fff8ee">
+            <td>{{ loop.index }}</td>
+            <td>{{ u.tehsil }}</td>
+            <td><strong>{{ u.village }}</strong></td>
+            <td style="text-align:right"><input class="target-input" type="number" min="0" name="unknown_target::{{ u.key }}" placeholder="(no target)"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      <h3 style="margin:8px 0 10px 0;color:#1a3a5c;font-size:14px">All villages ({{ rows|length }})</h3>
       <table class="admin">
         <thead>
           <tr><th>#</th><th>Tehsil</th><th>Village</th><th style="text-align:right">Default</th><th style="text-align:right">Target</th><th>&nbsp;</th></tr>
