@@ -112,5 +112,23 @@
     "p": "",
     "t": "SUMBAL",
     "v": "Sarai Dangarpora"
+  },
+  "SUMBAL||WAHID PORA": {
+    "n": "Dr Syed Mubarak Hussain Shah",
+    "p": "",
+    "t": "SUMBAL",
+    "v": "Wahid pora"
+  },
+  "TULAIL||DENGITHAL": {
+    "n": "Dr.Ab Rehman",
+    "p": "",
+    "t": "TULAIL",
+    "v": "Dengithal"
+  },
+  "TULAIL||ZEDGEY": {
+    "n": "Dr.Ab Rehman",
+    "p": "",
+    "t": "TULAIL",
+    "v": "Zedgey"
   }
 }
