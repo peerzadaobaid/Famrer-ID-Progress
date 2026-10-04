@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Daily CSV · Bandipora Farmer Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f6f8fb; color: #1a3a5c; line-height: 1.5; }
+    .header { background: linear-gradient(135deg, #1a3a5c 0%, #305496 100%); color: #fff; padding: 24px 28px; }
+    .header-inner { max-width: 720px; margin: 0 auto; }
+    .header h1 { font-size: 22px; font-weight: 600; }
+    .header .sub { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+    .header a.back { float: right; background: rgba(255,255,255,0.15); color: #fff; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.25); }
+    .container { max-width: 720px; margin: 30px auto; padding: 0 20px; }
+    .card { background: #fff; border-radius: 10px; border: 1px solid #e5ebf3; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h2 { font-size: 17px; margin-bottom: 8px; color: #1a3a5c; }
+    .card p { color: #556; font-size: 13.5px; margin-bottom: 14px; }
+    label.field { display: block; margin-bottom: 14px; }
+    label.field > span { display: block; font-size: 12px; font-weight: 600; color: #556; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    input[type="text"], input[type="date"], input[type="file"], input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid #c7d6ea; border-radius: 6px; font-size: 14px; color: #1a3a5c; background: #fff; }
+    button.submit { padding: 11px 22px; background: linear-gradient(135deg, #1a3a5c 0%, #305496 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    button.submit:hover { opacity: 0.92; }
+    .ok { background: #e6f4ea; border: 1px solid #a9d4b0; color: #2a6b35; padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
+    .err { background: #fde8e8; border: 1px solid #f0a0a0; color: #a63434; padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
+    .steps { background: #eef5fb; border-left: 3px solid #305496; padding: 12px 16px; border-radius: 6px; font-size: 13px; color: #556; }
+    .steps ol { margin-left: 18px; margin-top: 6px; }
+    .steps li { margin-bottom: 4px; }
+    code { background: #e5ebf3; padding: 1px 6px; border-radius: 3px; font-size: 12.5px; font-family: Menlo, Consolas, monospace; color: #1a3a5c; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <a href="/admin" class="back">← Admin</a>
+    <a href="/logout" class="back" style="margin-left:6px">Logout</a>
+    <h1>Upload Daily CSV</h1>
+    <div class="sub">Upload today's AGRISTACK <code>Registered_farmer_records</code> CSV with its snapshot date (dd-mm-yyyy).</div>
+  </div>
+</div>
+
+<div class="container">
+  {% if saved %}
+    <div class="ok">✓ Saved: <b>{{ saved }}</b>. <a href="/">Open the dashboard</a> to see updated figures.</div>
+  {% endif %}
+  {% if error %}
+    <div class="err">⚠ {{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <h2>New daily snapshot</h2>
+    <p>Upload the CSV exactly as exported from the AGRISTACK portal. Pick the date the snapshot represents — the portal diffs this against the previous day to compute additions.</p>
+    <form method="POST" enctype="multipart/form-data">
+      <label class="field">
+        <span>Snapshot date (dd-mm-yyyy)</span>
+        <input type="text" name="date" placeholder="04-10-2026" pattern="^\d{2}[./-]\d{2}[./-]\d{4}$" required>
+      </label>
+      <label class="field">
+        <span>CSV file</span>
+        <input type="file" name="csv" accept=".csv" required>
+      </label>
+      <button type="submit" class="submit">Upload</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>What happens next</h2>
+    <div class="steps">
+      <ol>
+        <li>The CSV is saved as <code>data/YYYY-MM-DD.csv</code> and parsed.</li>
+        <li>If a <code>GH_TOKEN</code> + <code>GH_REPO</code> are configured on Render, the file is committed to the GitHub repo so Render redeploys automatically.</li>
+        <li>Otherwise it stays on the current Render instance (ephemeral) — commit the file to the repo yourself to persist.</li>
+        <li>The dashboard re-reads <code>data/</code> on every page load and shows the latest state.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

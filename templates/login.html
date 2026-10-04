@@ -1,0 +1,24 @@
+{% from "_base_styles.html" import base_styles %}
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin login · Farmer ID Progress</title>
+{{ base_styles() }}
+</head><body>
+<div class="header"><div class="header-inner">
+  <div><h1>Admin login</h1><div class="sub">Enter the admin password to upload CSV, change targets, or edit camp directors.</div></div>
+  <div class="nav"><a href="{{ url_for('dashboard') }}">← Dashboard</a></div>
+</div></div>
+<div class="container" style="max-width: 460px">
+  {% if error %}<div class="err">⚠ {{ error }}</div>{% endif %}
+  <div class="card">
+    <form method="POST">
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" autofocus required>
+      </label>
+      <button type="submit" class="submit">Login</button>
+    </form>
+  </div>
+</div>
+</body></html>

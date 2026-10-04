@@ -1,0 +1,47 @@
+{% from "_base_styles.html" import base_styles %}
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Camp Directors · Admin</title>
+{{ base_styles() }}
+</head><body>
+<div class="header"><div class="header-inner">
+  <div><h1>Camp Directors</h1><div class="sub">Camp director name and phone for each of the 59 non-first-bucket villages.</div></div>
+  <div class="nav">
+    <a href="{{ url_for('admin_home') }}">← Admin</a>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</div></div>
+<div class="container">
+  {% if saved %}<div class="ok">✓ Saved. Render will redeploy in 1–2 minutes with the new assignments.</div>{% endif %}
+  {% if error %}<div class="err">⚠ {{ error }}</div>{% endif %}
+
+  <div class="card">
+    <p>Edit the <b>Director</b> and <b>Phone</b> fields for any village. Only changed rows are kept as overrides — leave a row untouched to keep the default. Blank the Director field to revert that row to default on save.</p>
+    <form method="POST">
+      <table class="admin">
+        <thead>
+          <tr><th>#</th><th>Tehsil</th><th>Village</th><th>Director</th><th style="width:140px">Phone</th><th>&nbsp;</th></tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr class="{{ 'override' if r.overridden else '' }}">
+            <td>{{ loop.index }}</td>
+            <td>{{ r.tehsil }}</td>
+            <td><strong>{{ r.village }}</strong></td>
+            <td><input type="text" name="cdname::{{ r.key }}" value="{{ r.name }}"></td>
+            <td><input type="text" name="cdphone::{{ r.key }}" value="{{ r.phone }}"></td>
+            <td>{% if r.overridden %}<span style="color:#a86416;font-size:11px">overridden</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="margin-top: 18px; display: flex; gap: 10px;">
+        <button type="submit" class="submit">Save all camp directors</button>
+        <a href="{{ url_for('admin_home') }}" style="padding:10px 18px;color:#556;text-decoration:none;font-size:14px">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+</body></html>
