@@ -146,7 +146,8 @@
     .back-btn:hover { background: #f4f8ff; }
     .back-context { color: #668; font-size: 12px; }
 
-    footer { max-width: 1200px; margin: 20px auto; padding: 12px 20px; color: #668; font-size: 12px; }
+    footer { max-width: 1200px; margin: 20px auto; padding: 12px 20px; color: #668; font-size: 12px; text-align: center; border-top: 1px solid #e5ebf3; padding-top: 20px; }
+    footer .credit { font-weight: 600; color: #305496; }
 
     @media (max-width: 760px) {
       .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -397,7 +398,10 @@
 
 </div>
 
-<footer>Bandipora Farmer Enrollment Dashboard · Updated {{ state.generated[:10] }}</footer>
+<footer>
+  Bandipora Farmer Enrollment Dashboard · Updated {{ state.generated[:10] }}<br>
+  Developed and maintained by <span class="credit">Obaid Peerzada</span>
+</footer>
 
 <script>
 const DATA = {{ state | tojson }};
@@ -574,8 +578,18 @@ function renderCDDirectors(tehsilName){
   if(!t){ showCDTehsils(); return; }
   var groups={};
   for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; var k=cdNormName(v.dir.name)+'|'+(v.dir.phone||''); if(!groups[k]) groups[k]={name:v.dir.name,phone:v.dir.phone,villages:[]}; groups[k].villages.push(v); }
-  var dirs=Object.keys(groups).map(function(k){ return Object.assign({key:k},groups[k]); });
-  dirs.sort(function(a,b){ return b.villages.length-a.villages.length || a.name.localeCompare(b.name); });
+  var dirs=Object.keys(groups).map(function(k){
+    var g = Object.assign({key:k}, groups[k]);
+    // Pre-compute totals so we can sort by issue % high → low
+    var tg=0, is=0;
+    for (var m=0; m<g.villages.length; m++) { tg += g.villages[m].target; is += g.villages[m].issued; }
+    g._issuePct = tg > 0 ? is/tg : -1;  // directors with no target sink to bottom
+    return g;
+  });
+  dirs.sort(function(a,b){
+    if (b._issuePct !== a._issuePct) return b._issuePct - a._issuePct;
+    return a.name.localeCompare(b.name);  // tie-break by name
+  });
   var body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0;
   for(var d=0;d<dirs.length;d++){
     var dir=dirs[d]; var tg=0,is=0,ap=0,bl=0,ar=0;
@@ -622,6 +636,8 @@ function renderCDVillages(tehsilName,dirKey){
   var vs=[],dirName='';
   for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; if(cdNormName(v.dir.name)+'|'+(v.dir.phone||'')===dirKey){ vs.push(v); dirName=v.dir.name; } }
   if(!vs.length){ showCDDirectors(tehsilName); return; }
+  // Sort villages under this director by issue % high → low
+  vs.sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
   var body='',gT=0,gI=0,gA=0,gB=0,gAR=0;
   for(var j=0;j<vs.length;j++){
     var v=vs[j], since=v.issued-v.issuedBaseline, ar=villageAddInRange(v,addFrom,addTo);

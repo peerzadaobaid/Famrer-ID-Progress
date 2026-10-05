@@ -33,5 +33,13 @@
   .admin-tile .title { font-size: 15px; font-weight: 700; }
   .admin-tile .desc { font-size: 12px; color: #668; margin-top: 4px; }
   @media (max-width: 760px) { .admin-tiles { grid-template-columns: 1fr; } }
+  .site-footer { text-align: center; padding: 24px 20px 20px; color: #668; font-size: 12px; margin-top: 20px; border-top: 1px solid #e5ebf3; }
+  .site-footer .credit { font-weight: 600; color: #305496; }
 </style>
+{% endmacro %}
+
+{% macro site_footer() %}
+<footer class="site-footer">
+  Developed and maintained by <span class="credit">Obaid Peerzada</span>
+</footer>
 {% endmacro %}
