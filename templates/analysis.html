@@ -1,0 +1,188 @@
+{% from "_base_styles.html" import base_styles %}
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analysis · Farmer ID Progress</title>
+{{ base_styles() }}
+<style>
+  .section-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; padding: 6px; background: linear-gradient(135deg, #e8eef7 0%, #d9e4f2 100%); border-radius: 12px; }
+  .section-tab { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 20px; cursor: pointer; background: #fff; color: #305496; font-weight: 600; font-size: 14px; border: 2px solid transparent; border-radius: 8px; text-align: center; font-family: inherit; }
+  .section-tab:hover { background: #f4f8ff; border-color: #c7d6ea; }
+  .section-tab.active { background: linear-gradient(135deg, #1a3a5c 0%, #305496 100%); color: #fff; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .stat-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-tile { background: #fff; border-radius: 8px; padding: 12px 14px; border: 1px solid #e5ebf3; }
+  .stat-tile .stat-label { font-size: 11px; color: #668; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+  .stat-tile .stat-value { font-size: 22px; font-weight: 700; color: #1a3a5c; margin-top: 4px; }
+  .stat-tile .stat-sub { font-size: 11px; color: #668; margin-top: 2px; }
+  .card h3 { font-size: 14px; color: #1a3a5c; margin-bottom: 8px; font-weight: 600; }
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .mini-table th, .mini-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #eef2f7; }
+  .mini-table th { background: #f6f8fb; font-weight: 600; font-size: 11px; color: #556; text-transform: uppercase; letter-spacing: 0.3px; }
+  .mini-table .num { text-align: right; }
+  .pct-good { color: #2e7d32; font-weight: 600; }
+  .pct-ok   { color: #ef6c00; font-weight: 600; }
+  .pct-low  { color: #c62828; font-weight: 600; }
+  .pct-zero { color: #999; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .section-header { font-size: 16px; color: #1a3a5c; font-weight: 700; margin: 6px 0 10px; display: flex; justify-content: space-between; align-items: baseline; }
+  .section-header .meta { color: #668; font-size: 12px; font-weight: 400; }
+  .download-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 20px; }
+  .download-row a { padding: 10px 18px; background: #fff; border: 2px solid #305496; color: #305496; border-radius: 8px; font-weight: 600; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .download-row a:hover { background: #305496; color: #fff; }
+  .download-row a .icon { font-size: 16px; }
+  .empty { color: #888; font-style: italic; padding: 10px; }
+  @media (max-width: 760px) {
+    .stat-tiles { grid-template-columns: 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .section-tabs { grid-template-columns: 1fr; }
+  }
+</style>
+</head><body>
+<div class="header"><div class="header-inner">
+  <div><h1>Progress Analysis</h1><div class="sub">Snapshot: {{ data.state_meta.snapshotDates[-1] if data.state_meta.snapshotDates else data.state_meta.baselineDate }} · Baseline {{ data.state_meta.baselineDate }}</div></div>
+  <div class="nav">
+    <a href="{{ url_for('dashboard') }}">← Dashboard</a>
+    {% if is_admin %}<a href="{{ url_for('admin_home') }}">Admin</a>{% else %}<a href="{{ url_for('login') }}">Login</a>{% endif %}
+  </div>
+</div></div>
+
+<div class="container">
+
+  <div class="download-row">
+    <a href="{{ url_for('download_xlsx') }}"><span class="icon">📊</span> Download full Excel (5 sheets)</a>
+    <a href="{{ url_for('download_csv') }}"><span class="icon">📄</span> Download village-level CSV</a>
+  </div>
+
+  <div class="section-tabs">
+    <button class="section-tab active" onclick="switchSec('all')" id="tab-all"><span>🌾</span><span>All villages ({{ data.all.count }})</span></button>
+    <button class="section-tab" onclick="switchSec('cd')" id="tab-cd"><span>👥</span><span>Camp Director villages ({{ data.cd.count }})</span></button>
+  </div>
+
+  {% macro render_section(sec) %}
+    {# Summary tiles #}
+    <div class="stat-tiles">
+      <div class="stat-tile"><div class="stat-label">Target</div><div class="stat-value">{{ "{:,}".format(sec.total_target) }}</div><div class="stat-sub">across {{ sec.count }} villages</div></div>
+      <div class="stat-tile"><div class="stat-label">Issued</div><div class="stat-value">{{ "{:,}".format(sec.total_issued) }}</div><div class="stat-sub">{{ sec.overall_issue_pct }}% of target</div></div>
+      <div class="stat-tile"><div class="stat-label">Approved</div><div class="stat-value">{{ "{:,}".format(sec.total_approved) }}</div><div class="stat-sub">{{ sec.overall_approval_pct }}% of issued</div></div>
+      <div class="stat-tile"><div class="stat-label">Added since 1 Oct</div><div class="stat-value" style="color:#1e88e5">{{ '+' if sec.total_since_oct1 > 0 else '' }}{{ "{:,}".format(sec.total_since_oct1) }}</div><div class="stat-sub">October-onwards additions</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-header"><span>🏆 Top 10 by Issue %</span><span class="meta">target hit vs issued</span></div>
+        <table class="mini-table">
+          <thead><tr><th>#</th><th>Village</th><th>Tehsil</th><th class="num">Issued / Target</th><th class="num">Issue %</th></tr></thead>
+          <tbody>
+          {% for r in sec.top10 %}
+            <tr><td>{{ loop.index }}</td><td><strong>{{ r.village }}</strong></td><td>{{ r.tehsil }}</td><td class="num">{{ r.issued }} / {{ r.target }}</td><td class="num"><span class="{% if r.issuePct >= 80 %}pct-good{% elif r.issuePct >= 40 %}pct-ok{% else %}pct-low{% endif %}">{{ r.issuePct }}%</span></td></tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">No villages with targets yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="section-header"><span>⚠ Bottom 10 — needs attention</span><span class="meta">lowest issue %</span></div>
+        <table class="mini-table">
+          <thead><tr><th>#</th><th>Village</th><th>Tehsil</th><th class="num">Issued / Target</th><th class="num">Issue %</th></tr></thead>
+          <tbody>
+          {% for r in sec.bottom10 %}
+            <tr><td>{{ loop.index }}</td><td><strong>{{ r.village }}</strong></td><td>{{ r.tehsil }}</td><td class="num">{{ r.issued }} / {{ r.target }}</td><td class="num"><span class="{% if r.issuePct == 0 %}pct-zero{% elif r.issuePct < 30 %}pct-low{% elif r.issuePct < 70 %}pct-ok{% else %}pct-good{% endif %}">{{ r.issuePct }}%</span></td></tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">No villages with targets yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:16px">
+      <div class="card">
+        <div class="section-header"><span>🚫 No October activity</span><span class="meta">0 additions since 1 Oct</span></div>
+        <table class="mini-table">
+          <thead><tr><th>#</th><th>Village</th><th>Tehsil</th><th class="num">Target</th><th class="num">Issued</th></tr></thead>
+          <tbody>
+          {% for r in sec.no_progress %}
+            <tr><td>{{ loop.index }}</td><td><strong>{{ r.village }}</strong></td><td>{{ r.tehsil }}</td><td class="num">{{ r.target }}</td><td class="num">{{ r.issued }}</td></tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">All targeted villages have at least some October activity.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="section-header"><span>🎉 Target achieved (100%+)</span><span class="meta">overachievers</span></div>
+        <table class="mini-table">
+          <thead><tr><th>#</th><th>Village</th><th>Tehsil</th><th class="num">Issued / Target</th><th class="num">Issue %</th></tr></thead>
+          <tbody>
+          {% for r in sec.overachievers %}
+            <tr><td>{{ loop.index }}</td><td><strong>{{ r.village }}</strong></td><td>{{ r.tehsil }}</td><td class="num">{{ r.issued }} / {{ r.target }}</td><td class="num pct-good">{{ r.issuePct }}%</td></tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">No villages have hit target yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endmacro %}
+
+  {# ---- Section: All villages ---- #}
+  <div id="sec-all" class="section active">
+    {{ render_section(data.all) }}
+
+    <div class="card" style="margin-top:16px">
+      <div class="section-header"><span>🏛 Tehsil ranking</span><span class="meta">by issue %</span></div>
+      <table class="mini-table">
+        <thead><tr><th>#</th><th>Tehsil</th><th class="num">Villages</th><th class="num">Target</th><th class="num">Issued</th><th class="num">Added since 1 Oct</th><th class="num">Issue %</th><th class="num">Approval %</th></tr></thead>
+        <tbody>
+        {% for t in data.tehsil_ranking %}
+          <tr><td>{{ loop.index }}</td><td><strong>{{ t.tehsil }}</strong></td><td class="num">{{ t.villages }}</td><td class="num">{{ "{:,}".format(t.target) }}</td><td class="num">{{ "{:,}".format(t.issued) }}</td><td class="num" style="color:#1e88e5">{{ '+' if t.sinceOct1 > 0 else '' }}{{ t.sinceOct1 }}</td><td class="num"><span class="{% if t.issuePct >= 70 %}pct-good{% elif t.issuePct >= 30 %}pct-ok{% else %}pct-low{% endif %}">{{ t.issuePct }}%</span></td><td class="num">{{ t.approvalPct }}%</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ---- Section: Camp Director villages ---- #}
+  <div id="sec-cd" class="section">
+    {{ render_section(data.cd) }}
+
+    <div class="card" style="margin-top:16px">
+      <div class="section-header"><span>🏅 Camp Director leaderboard</span><span class="meta">ranked by issue % · grouped where one director manages multiple villages</span></div>
+      <table class="mini-table">
+        <thead><tr><th>#</th><th>Camp Director</th><th>Tehsil</th><th class="num">Villages</th><th>Village names</th><th class="num">Target</th><th class="num">Issued</th><th class="num">Added since 1 Oct</th><th class="num">Issue %</th><th class="num">Approval %</th></tr></thead>
+        <tbody>
+        {% for d in data.director_leaderboard %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ d.director }}</strong>{% if d.phone %}<br><small style="color:#888">{{ d.phone }}</small>{% endif %}</td>
+            <td>{{ d.tehsil }}</td>
+            <td class="num">{{ d.village_count }}</td>
+            <td style="font-size:11.5px;color:#556;max-width:220px">{{ d.village_names }}</td>
+            <td class="num">{{ "{:,}".format(d.target) }}</td>
+            <td class="num">{{ "{:,}".format(d.issued) }}</td>
+            <td class="num" style="color:#1e88e5">{{ '+' if d.sinceOct1 > 0 else '' }}{{ d.sinceOct1 }}</td>
+            <td class="num"><span class="{% if d.issuePct >= 70 %}pct-good{% elif d.issuePct >= 30 %}pct-ok{% else %}pct-low{% endif %}">{{ d.issuePct }}%</span></td>
+            <td class="num">{{ d.approvalPct }}%</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function switchSec(name) {
+  ['all','cd'].forEach(function(s){
+    document.getElementById('sec-'+s).classList.toggle('active', s===name);
+    document.getElementById('tab-'+s).classList.toggle('active', s===name);
+  });
+}
+</script>
+</body></html>

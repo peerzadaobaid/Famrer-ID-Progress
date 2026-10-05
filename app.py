@@ -991,6 +991,298 @@ def edit_camp_directors():
                            rows=rows, unknown=unknown,
                            error=error, saved=saved)
 
+
+# =========================================================================
+# Analysis page + CSV / XLSX downloads (public)
+# =========================================================================
+
+def _pct(num, den):
+    return round((num / den * 100), 1) if den > 0 else 0.0
+
+def analysis_data():
+    """Build metrics for the analysis page. Returns a dict with two sections:
+    'all' (every village with a target or any issuance) and 'cd' (just the
+    camp-director villages). Each section has summary, top, bottom, etc.
+    """
+    state = build_nested_structure()
+
+    # Flatten all villages
+    all_villages = []
+    cd_villages = []
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            row = {
+                "tehsil": t["tehsil"],
+                "village": v["village"],
+                "target": v["target"],
+                "issued": v["issued"],
+                "approved": v["approved"],
+                "issuedBaseline": v["issuedBaseline"],
+                "approvedBaseline": v["approvedBaseline"],
+                "sinceOct1": v["issued"] - v["issuedBaseline"],
+                "issuePct": _pct(v["issued"], v["target"]),
+                "approvalPct": _pct(v["approved"], v["issued"]),
+                "firstBucket": v["firstBucket"],
+                "director": (v["campDirector"] or {}).get("n", "") if v["campDirector"] else "",
+                "directorPhone": (v["campDirector"] or {}).get("p", "") if v["campDirector"] else "",
+            }
+            if row["target"] > 0 or row["issued"] > 0:
+                all_villages.append(row)
+            if row["director"]:
+                cd_villages.append(row)
+
+    def section(rows, label):
+        with_target = [r for r in rows if r["target"] > 0]
+        no_progress = [r for r in rows if r["sinceOct1"] == 0 and r["target"] > 0]
+        overachievers = [r for r in rows if r["issuePct"] >= 100]
+        at_risk = sorted([r for r in with_target if r["issuePct"] < 30],
+                         key=lambda r: r["issuePct"])
+        top10 = sorted(with_target, key=lambda r: -r["issuePct"])[:10]
+        bottom10 = sorted(with_target, key=lambda r: r["issuePct"])[:10]
+        total_tgt = sum(r["target"] for r in rows)
+        total_iss = sum(r["issued"] for r in rows)
+        total_apr = sum(r["approved"] for r in rows)
+        total_since = sum(r["sinceOct1"] for r in rows)
+        return {
+            "label": label,
+            "count": len(rows),
+            "total_target": total_tgt,
+            "total_issued": total_iss,
+            "total_approved": total_apr,
+            "total_since_oct1": total_since,
+            "overall_issue_pct": _pct(total_iss, total_tgt),
+            "overall_approval_pct": _pct(total_apr, total_iss),
+            "top10": top10,
+            "bottom10": bottom10,
+            "no_progress": no_progress,
+            "overachievers": overachievers,
+            "at_risk": at_risk,
+        }
+
+    # Camp director leaderboard — aggregate per unique director (within a tehsil)
+    cd_groups = {}
+    for r in cd_villages:
+        key = (r["tehsil"], " ".join(r["director"].upper().split()))
+        if key not in cd_groups:
+            cd_groups[key] = {
+                "tehsil": r["tehsil"],
+                "director": r["director"],
+                "phone": r["directorPhone"],
+                "villages": [],
+            }
+        cd_groups[key]["villages"].append(r)
+    director_rows = []
+    for g in cd_groups.values():
+        total_tgt = sum(v["target"] for v in g["villages"])
+        total_iss = sum(v["issued"] for v in g["villages"])
+        total_apr = sum(v["approved"] for v in g["villages"])
+        total_since = sum(v["sinceOct1"] for v in g["villages"])
+        director_rows.append({
+            "tehsil": g["tehsil"],
+            "director": g["director"],
+            "phone": g["phone"],
+            "village_count": len(g["villages"]),
+            "village_names": ", ".join(v["village"] for v in g["villages"]),
+            "target": total_tgt,
+            "issued": total_iss,
+            "approved": total_apr,
+            "sinceOct1": total_since,
+            "issuePct": _pct(total_iss, total_tgt),
+            "approvalPct": _pct(total_apr, total_iss),
+        })
+    director_rows_by_pct = sorted(director_rows, key=lambda r: -r["issuePct"])
+
+    # Tehsil ranking
+    tehsil_ranking = []
+    for t in state["tehsils"]:
+        tgt = t["target"]
+        iss = t["issued"]
+        apr = t["approved"]
+        tehsil_ranking.append({
+            "tehsil": t["tehsil"],
+            "villages": len(t["villages"]),
+            "target": tgt,
+            "issued": iss,
+            "approved": apr,
+            "sinceOct1": iss - (t.get("issuedBaseline") or 0),
+            "issuePct": _pct(iss, tgt),
+            "approvalPct": _pct(apr, iss),
+        })
+    tehsil_ranking.sort(key=lambda r: -r["issuePct"])
+
+    return {
+        "all": section(all_villages, "All villages"),
+        "cd":  section(cd_villages, "Camp Director villages (59)"),
+        "director_leaderboard": director_rows_by_pct,
+        "tehsil_ranking": tehsil_ranking,
+        "state_meta": {
+            "baselineDate": state["baselineDate"],
+            "snapshotDates": state["snapshotDates"],
+            "generated": state["generated"],
+        },
+    }
+
+
+@app.route("/analysis")
+def analysis():
+    return render_template("analysis.html", data=analysis_data())
+
+
+# ---- CSV download: village-level, flat --------------------------------
+
+@app.route("/download/csv")
+def download_csv():
+    import io
+    state = build_nested_structure()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Tehsil", "Village", "Target", "Total Issued", "Approved",
+                "Issued through 30 Sep", "Approved through 30 Sep",
+                "Added since 1 Oct", "Issue %", "Approval %",
+                "First Bucket", "Camp Director", "Director Phone"])
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            cd = v["campDirector"] or {}
+            since = v["issued"] - v["issuedBaseline"]
+            issue_pct  = round(v["issued"]/v["target"]*100, 1) if v["target"] > 0 else ""
+            appr_pct   = round(v["approved"]/v["issued"]*100, 1) if v["issued"] > 0 else ""
+            w.writerow([t["tehsil"], v["village"], v["target"], v["issued"], v["approved"],
+                        v["issuedBaseline"], v["approvedBaseline"],
+                        since, issue_pct, appr_pct,
+                        "Yes" if v["firstBucket"] else "No",
+                        cd.get("n", ""), cd.get("p", "")])
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    return Response(buf.getvalue(),
+                    mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename=farmer_id_progress_{today}.csv"})
+
+
+# ---- XLSX download: multi-sheet workbook ------------------------------
+
+@app.route("/download/xlsx")
+def download_xlsx():
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    state = build_nested_structure()
+    data  = analysis_data()
+    wb = Workbook()
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="1A3A5C")
+    totals_font = Font(bold=True)
+    totals_fill = PatternFill("solid", fgColor="EEF2F7")
+
+    def write_sheet(ws, headers, rows, totals_row=None):
+        for i, h in enumerate(headers, 1):
+            c = ws.cell(row=1, column=i, value=h)
+            c.font = header_font
+            c.fill = header_fill
+            c.alignment = Alignment(horizontal="left", vertical="center")
+        for r_idx, row in enumerate(rows, 2):
+            for c_idx, val in enumerate(row, 1):
+                ws.cell(row=r_idx, column=c_idx, value=val)
+        if totals_row:
+            r = len(rows) + 2
+            for c_idx, val in enumerate(totals_row, 1):
+                cell = ws.cell(row=r, column=c_idx, value=val)
+                cell.font = totals_font
+                cell.fill = totals_fill
+        # Auto column widths (rough)
+        for c_idx in range(1, len(headers) + 1):
+            max_len = max([len(str(headers[c_idx-1]))] + [len(str(r[c_idx-1])) for r in rows if c_idx-1 < len(r)])
+            ws.column_dimensions[get_column_letter(c_idx)].width = min(max_len + 2, 42)
+        ws.freeze_panes = "A2"
+
+    # --- Sheet 1: Tehsil Summary ---
+    ws = wb.active
+    ws.title = "Tehsil Summary"
+    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", "Added since 1 Oct",
+               "Issue %", "Approved", "Approval %"]
+    rows = []
+    gT = gI = gA = gS = 0
+    for i, t in enumerate(data["tehsil_ranking"], 1):
+        rows.append([i, t["tehsil"], t["villages"], t["target"], t["issued"],
+                     t["sinceOct1"], t["issuePct"], t["approved"], t["approvalPct"]])
+        gT += t["target"]; gI += t["issued"]; gA += t["approved"]; gS += t["sinceOct1"]
+    totals = ["", "TOTAL", "", gT, gI, gS, _pct(gI, gT), gA, _pct(gA, gI)]
+    write_sheet(ws, headers, rows, totals)
+
+    # --- Sheet 2: Village Details (all villages) ---
+    ws = wb.create_sheet("Village Details")
+    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Approved",
+               "Issued thru 30 Sep", "Approved thru 30 Sep", "Added since 1 Oct",
+               "Issue %", "Approval %", "First Bucket", "Camp Director", "Phone"]
+    rows = []
+    n = 1
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            cd = v["campDirector"] or {}
+            since = v["issued"] - v["issuedBaseline"]
+            rows.append([n, t["tehsil"], v["village"], v["target"], v["issued"], v["approved"],
+                         v["issuedBaseline"], v["approvedBaseline"], since,
+                         _pct(v["issued"], v["target"]), _pct(v["approved"], v["issued"]),
+                         "Yes" if v["firstBucket"] else "No",
+                         cd.get("n", ""), cd.get("p", "")])
+            n += 1
+    write_sheet(ws, headers, rows)
+
+    # --- Sheet 3: Camp Director Villages (59) ---
+    ws = wb.create_sheet("Camp Director Villages")
+    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Added since 1 Oct",
+               "Issue %", "Approved", "Approval %", "Camp Director", "Phone"]
+    rows = []
+    n = 1
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            if not v.get("campDirector"):
+                continue
+            cd = v["campDirector"]
+            since = v["issued"] - v["issuedBaseline"]
+            rows.append([n, t["tehsil"], v["village"], v["target"], v["issued"], since,
+                         _pct(v["issued"], v["target"]), v["approved"],
+                         _pct(v["approved"], v["issued"]), cd["n"], cd.get("p", "")])
+            n += 1
+    write_sheet(ws, headers, rows)
+
+    # --- Sheet 4: Camp Director Leaderboard ---
+    ws = wb.create_sheet("Camp Director Leaderboard")
+    headers = ["#", "Director", "Phone", "Tehsil", "Villages Managed", "Village Names",
+               "Target", "Total Issued", "Added since 1 Oct", "Issue %", "Approved", "Approval %"]
+    rows = []
+    for i, d in enumerate(data["director_leaderboard"], 1):
+        rows.append([i, d["director"], d["phone"], d["tehsil"], d["village_count"],
+                     d["village_names"], d["target"], d["issued"], d["sinceOct1"],
+                     d["issuePct"], d["approved"], d["approvalPct"]])
+    write_sheet(ws, headers, rows)
+
+    # --- Sheet 5: Daily Deltas ---
+    ws = wb.create_sheet("Daily Additions")
+    headers = ["Date", "Tehsil", "Village", "Issued (that day)", "Approved (that day)"]
+    rows = []
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            dc = v.get("datedCounts") or {}
+            for d in sorted(dc.keys()):
+                e = dc[d]
+                if (e.get("issued", 0) or e.get("approved", 0)) and d > state["baselineDate"]:
+                    rows.append([d, t["tehsil"], v["village"],
+                                 e.get("issued", 0), e.get("approved", 0)])
+    rows.sort(key=lambda r: (r[0], r[1], r[2]))
+    write_sheet(ws, headers, rows)
+
+    # Serialize + return
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    return Response(bio.getvalue(),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f"attachment; filename=farmer_id_progress_{today}.xlsx"})
+
+
 def commit_to_github(local_path, repo_path, message):
     """Push a file to GitHub via API. Requires GH_TOKEN + GH_REPO env vars.
     local_path: path on this server; repo_path: path inside the repo (e.g. 'data/2026-10-04.csv').
