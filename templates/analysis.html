@@ -56,8 +56,8 @@
   </div>
 
   <div class="section-tabs">
-    <button class="section-tab active" onclick="switchSec('all')" id="tab-all"><span>🌾</span><span>All villages ({{ data.all.count }})</span></button>
-    <button class="section-tab" onclick="switchSec('cd')" id="tab-cd"><span>👥</span><span>Camp Director villages ({{ data.cd.count }})</span></button>
+    <button class="section-tab active" onclick="switchSec('cd')" id="tab-cd"><span>👥</span><span>Camp Director villages ({{ data.cd.count }})</span></button>
+    <button class="section-tab" onclick="switchSec('all')" id="tab-all"><span>🌾</span><span>All villages ({{ data.all.count }})</span></button>
   </div>
 
   {% macro render_section(sec) %}
@@ -131,7 +131,7 @@
   {% endmacro %}
 
   {# ---- Section: All villages ---- #}
-  <div id="sec-all" class="section active">
+  <div id="sec-all" class="section">
     {{ render_section(data.all) }}
 
     <div class="card" style="margin-top:16px">
@@ -148,10 +148,8 @@
   </div>
 
   {# ---- Section: Camp Director villages ---- #}
-  <div id="sec-cd" class="section">
-    {{ render_section(data.cd) }}
-
-    <div class="card" style="margin-top:16px">
+  <div id="sec-cd" class="section active">
+    <div class="card">
       <div class="section-header"><span>🏅 Camp Director leaderboard</span><span class="meta">ranked by issue % · grouped where one director manages multiple villages</span></div>
       <table class="mini-table">
         <thead><tr><th>#</th><th>Camp Director</th><th>Tehsil</th><th class="num">Villages</th><th>Village names</th><th class="num">Target</th><th class="num">Issued</th><th class="num">Added since 1 Oct</th><th class="num">Issue %</th><th class="num">Approval %</th></tr></thead>
@@ -173,6 +171,8 @@
         </tbody>
       </table>
     </div>
+
+    {{ render_section(data.cd) }}
   </div>
 
 </div>

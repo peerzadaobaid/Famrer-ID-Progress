@@ -224,18 +224,18 @@
 
   {# ============== TABS ============== #}
   <div class="view-tabs" id="viewTabs">
-    <button class="view-tab active" id="tabProgress" onclick="switchTab('progress')">
+    <button class="view-tab" id="tabProgress" onclick="switchTab('progress')">
       <span class="tab-icon">📊</span>
       <span>Tehsil-wise Progress<span class="tab-sub">All villages · targets vs enrollment</span></span>
     </button>
-    <button class="view-tab" id="tabCD" onclick="switchTab('cd')">
+    <button class="view-tab active" id="tabCD" onclick="switchTab('cd')">
       <span class="tab-icon">👥</span>
       <span>Camp Director Progress<span class="tab-sub">59 villages · by assigned director</span></span>
     </button>
   </div>
 
   {# ============== VIEW: TEHSIL (L1) ============== #}
-  <div id="viewTehsil" class="view active">
+  <div id="viewTehsil" class="view">
     <div class="panel">
       <div class="panel-header">
         <h2>Tehsil-wise Progress <small style="color:#888;font-weight:400;font-size:12px;margin-left:6px">Click a row to see villages</small></h2>
@@ -299,7 +299,7 @@
   </div>
 
   {# ============== VIEW: CD TEHSIL (L1) ============== #}
-  <div id="viewCDTehsil" class="view">
+  <div id="viewCDTehsil" class="view active">
     <div class="panel">
       <div class="panel-header">
         <h2>Camp Director Progress — Tehsil-wise <small style="color:#888;font-weight:400;font-size:12px;margin-left:6px">59 non-first-bucket villages</small></h2>
@@ -417,17 +417,15 @@ function dayAfter(ymd) {
 }
 var POST_BASELINE_START = dayAfter(DATA.baselineDate || '2026-09-30');  // e.g. '2026-10-01'
 
-// Default date range: last two snapshot dates (most recent single-day additions).
-// With one snapshot: show just that single day. With none: start of Oct → today.
+// Default date range: just the latest snapshot date (that single day's additions).
+// If latest snapshot is 5 Oct, default is 05-10 → 05-10 — shows ONLY what was
+// added on that day, nothing earlier. With no snapshots: start of Oct.
 var addFrom, addTo;
 (function pickDefaultRange() {
   var snaps = (DATA.snapshotDates || []).slice();
-  if (snaps.length >= 2) {
-    addFrom = snaps[snaps.length - 2];
+  if (snaps.length >= 1) {
+    addFrom = snaps[snaps.length - 1];
     addTo   = snaps[snaps.length - 1];
-  } else if (snaps.length === 1) {
-    addFrom = snaps[0];
-    addTo   = snaps[0];
   } else {
     addFrom = POST_BASELINE_START;
     addTo   = DATA.maxDate || POST_BASELINE_START;
@@ -720,7 +718,8 @@ function rerender(){
   if(document.getElementById('viewCDVillages').classList.contains('active')){ var bc=document.getElementById('cdVilBreadcrumb').textContent; if(bc&&bc.indexOf(' › ')>=0){ var p=bc.split(' › '); var tn=p[0].trim(), dn=p[1].trim(); for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tn) for(var j=0;j<DATA.tehsils[i].villages.length;j++){ var cd=DATA.tehsils[i].villages[j].campDirector; if(cd&&cd.n===dn){ renderCDVillages(tn,cdNormName(cd.n)+'|'+(cd.p||'')); return; } } } }
 }
 
-renderTehsils();
+// Camp Director Progress is the default open tab.
+renderCDTehsils();
 </script>
 </body>
 </html>

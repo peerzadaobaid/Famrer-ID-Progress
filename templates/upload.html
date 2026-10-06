@@ -23,10 +23,17 @@
     button.submit:hover { opacity: 0.92; }
     .ok { background: #e6f4ea; border: 1px solid #a9d4b0; color: #2a6b35; padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
     .err { background: #fde8e8; border: 1px solid #f0a0a0; color: #a63434; padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
+    .info { background: #fff8ee; border: 1px solid #e8c48a; color: #7a5820; padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; display: none; }
+    .info.visible { display: block; }
+    .info label { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 600; color: #a86416; cursor: pointer; }
+    .info input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
     .steps { background: #eef5fb; border-left: 3px solid #305496; padding: 12px 16px; border-radius: 6px; font-size: 13px; color: #556; }
     .steps ol { margin-left: 18px; margin-top: 6px; }
     .steps li { margin-bottom: 4px; }
     code { background: #e5ebf3; padding: 1px 6px; border-radius: 3px; font-size: 12.5px; font-family: Menlo, Consolas, monospace; color: #1a3a5c; }
+    .existing-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .existing-pill { background: #eef2f7; color: #305496; padding: 4px 10px; border-radius: 12px; font-size: 11.5px; font-weight: 600; font-family: Menlo, Consolas, monospace; }
+    .empty-note { color: #888; font-style: italic; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -42,25 +49,48 @@
 
 <div class="container">
   {% if saved %}
-    <div class="ok">✓ Saved: <b>{{ saved }}</b>. <a href="/">Open the dashboard</a> to see updated figures.</div>
+    <div class="ok">
+      ✓ Saved: <b>{{ saved }}</b>.
+      {% if replaced_date %}The previous snapshot for <b>{{ replaced_date }}</b> was replaced (older version kept in GitHub commit history).{% endif %}
+      <a href="/">Open the dashboard</a> to see updated figures.
+    </div>
   {% endif %}
   {% if error %}
     <div class="err">⚠ {{ error }}</div>
   {% endif %}
 
   <div class="card">
+    <h2>Existing snapshots in <code>data/</code></h2>
+    {% if existing_dates %}
+      <p style="margin-bottom:6px">{{ existing_dates|length }} day{{ 's' if existing_dates|length != 1 else '' }} uploaded so far:</p>
+      <div class="existing-list">
+        {% for d in existing_dates %}<span class="existing-pill" data-date="{{ d }}">{{ d }}</span>{% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-note">No snapshots uploaded yet. Your first upload becomes the Oct-onwards baseline.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
     <h2>New daily snapshot</h2>
     <p>Upload the CSV exactly as exported from the AGRISTACK portal. Pick the date the snapshot represents — the portal diffs this against the previous day to compute additions.</p>
-    <form method="POST" enctype="multipart/form-data">
+
+    <div id="overwriteWarning" class="info">
+      ⚠ A snapshot for <b><span id="owDate"></span></b> already exists. If you continue, that one will be replaced. The older version stays in GitHub commit history and can be restored from there if needed.
+      <br><label><input type="checkbox" id="owConfirm"> Yes, replace it</label>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="uploadForm">
       <label class="field">
         <span>Snapshot date (dd-mm-yyyy)</span>
-        <input type="text" name="date" placeholder="04-10-2026" pattern="^\d{2}[./-]\d{2}[./-]\d{4}$" required>
+        <input type="text" name="date" id="dateInput" placeholder="04-10-2026" pattern="^\d{2}[./-]\d{2}[./-]\d{4}$" required>
       </label>
       <label class="field">
         <span>CSV file</span>
         <input type="file" name="csv" accept=".csv" required>
       </label>
-      <button type="submit" class="submit">Upload</button>
+      <input type="hidden" name="confirm_overwrite" id="confirmField" value="">
+      <button type="submit" class="submit" id="submitBtn">Upload</button>
     </form>
   </div>
 
@@ -69,9 +99,10 @@
     <div class="steps">
       <ol>
         <li>The CSV is saved as <code>data/YYYY-MM-DD.csv</code> and parsed.</li>
-        <li>If a <code>GH_TOKEN</code> + <code>GH_REPO</code> are configured on Render, the file is committed to the GitHub repo so Render redeploys automatically.</li>
-        <li>Otherwise it stays on the current Render instance (ephemeral) — commit the file to the repo yourself to persist.</li>
-        <li>The dashboard re-reads <code>data/</code> on every page load and shows the latest state.</li>
+        <li>If <code>GH_TOKEN</code> + <code>GH_REPO</code> are set on Render, the file is committed to the GitHub repo and Render auto-redeploys.</li>
+        <li>If a snapshot already exists for that date, it is replaced (overwrite) — old version stays in GitHub commit history.</li>
+        <li>The portal's defensive merge means re-uploading a smaller/partial file won't erase previous progress.</li>
+        <li>The dashboard reads <code>data/</code> on every page load and shows the latest state.</li>
       </ol>
     </div>
   </div>
@@ -80,6 +111,54 @@
 <footer style="text-align:center;padding:24px 20px 20px;color:#668;font-size:12px;margin-top:20px;border-top:1px solid #e5ebf3">
   Developed and maintained by <span style="font-weight:600;color:#305496">Obaid Peerzada</span>
 </footer>
+
+<script>
+(function(){
+  // Existing-date set collected from the pills above the form
+  var existing = {};
+  Array.prototype.forEach.call(document.querySelectorAll('.existing-pill'), function(p){
+    existing[p.getAttribute('data-date')] = true;
+  });
+
+  var dateInput  = document.getElementById('dateInput');
+  var warning    = document.getElementById('overwriteWarning');
+  var owDate     = document.getElementById('owDate');
+  var owConfirm  = document.getElementById('owConfirm');
+  var confField  = document.getElementById('confirmField');
+  var submitBtn  = document.getElementById('submitBtn');
+
+  // Accept dd-mm-yyyy, dd.mm.yyyy, dd/mm/yyyy, yyyy-mm-dd → normalize to yyyy-mm-dd
+  function toISO(raw){
+    raw = (raw||'').trim();
+    var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return raw;
+    m = raw.match(/^(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})$/);
+    if (m) return m[3] + '-' + m[2] + '-' + m[1];
+    return null;
+  }
+
+  function updateUI(){
+    var iso = toISO(dateInput.value);
+    var isExisting = iso && existing[iso];
+    if (isExisting) {
+      owDate.textContent = iso;
+      warning.classList.add('visible');
+      submitBtn.textContent = owConfirm.checked ? 'Replace existing snapshot' : 'Tick to confirm, then Upload';
+      submitBtn.disabled = !owConfirm.checked;
+      confField.value = owConfirm.checked ? 'yes' : '';
+    } else {
+      warning.classList.remove('visible');
+      owConfirm.checked = false;
+      submitBtn.textContent = 'Upload';
+      submitBtn.disabled = false;
+      confField.value = '';
+    }
+  }
+  dateInput.addEventListener('input', updateUI);
+  owConfirm.addEventListener('change', updateUI);
+  updateUI();
+})();
+</script>
 
 </body>
 </html>

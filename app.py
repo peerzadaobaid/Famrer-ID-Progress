@@ -759,34 +759,51 @@ def _parse_date_input(raw):
 def upload():
     error = None
     saved = None
+    replaced_date = None  # set when a successful upload replaced an existing snapshot
     if request.method == "POST":
         date = _parse_date_input(request.form.get("date", ""))
         if not date or date <= BASELINE_DATE:
             error = "Date must be in dd-mm-yyyy and after {}.".format(BASELINE_DATE)
         else:
-            f = request.files.get("csv")
-            if not f or not f.filename:
-                error = "Pick a CSV file."
+            out_path = os.path.join(DATA_DIR, date + ".csv")
+            already_exists = os.path.exists(out_path)
+            # If overwriting, the client must confirm (the JS on the page sets this
+            # hidden flag after the admin acknowledges the warning).
+            if already_exists and request.form.get("confirm_overwrite") != "yes":
+                error = ("A snapshot for {} already exists. Tick 'Yes, replace it' and "
+                         "resubmit to confirm the overwrite.").format(date)
             else:
-                os.makedirs(DATA_DIR, exist_ok=True)
-                out_path = os.path.join(DATA_DIR, date + ".csv")
-                f.save(out_path)
-                try:
-                    parse_snapshot_csv(out_path)
-                except Exception as e:
-                    os.remove(out_path)
-                    error = "That CSV didn't parse: {}".format(e)
+                f = request.files.get("csv")
+                if not f or not f.filename:
+                    error = "Pick a CSV file."
                 else:
-                    saved = date + ".csv"
-                    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
-                        try:
-                            commit_to_github(out_path, "data/" + date + ".csv",
-                                             "data: snapshot for " + date)
-                            saved += " (committed to GitHub)"
-                        except Exception as e:
-                            error = "Saved locally but GitHub push failed: {}".format(e)
+                    os.makedirs(DATA_DIR, exist_ok=True)
+                    f.save(out_path)
+                    try:
+                        parse_snapshot_csv(out_path)
+                    except Exception as e:
+                        os.remove(out_path)
+                        error = "That CSV didn't parse: {}".format(e)
+                    else:
+                        saved = date + ".csv"
+                        if already_exists:
+                            replaced_date = date
+                        if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+                            try:
+                                verb = "replace" if already_exists else "add"
+                                commit_to_github(out_path, "data/" + date + ".csv",
+                                                 "data: {} snapshot for {}".format(verb, date))
+                                saved += " (committed to GitHub)"
+                            except Exception as e:
+                                error = "Saved locally but GitHub push failed: {}".format(e)
+    # Collect existing snapshot dates for the UI
+    existing = []
+    for d, _ in discover_snapshots():
+        existing.append(d)
     return render_template("upload.html",
                            baseline_date=BASELINE_DATE,
+                           existing_dates=existing,
+                           replaced_date=replaced_date,
                            error=error, saved=saved)
 
 
