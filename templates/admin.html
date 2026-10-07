@@ -30,6 +30,29 @@
       <div class="desc">Change the camp director (name &amp; phone) assigned to any of the 59 villages.</div>
     </a>
   </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Dashboard columns</h2>
+    <p style="color:#556;font-size:13.5px;margin-bottom:14px">Toggle optional columns on or off for everyone viewing the dashboard. The setting is saved to GitHub and takes effect after Render redeploys (~1 min).</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fef2f2;border:1px solid #f0a0a0;border-radius:8px">
+      <div>
+        <div style="font-weight:700;color:#a63434;font-size:14px">📋 Pending Entries column</div>
+        <div style="color:#7a3434;font-size:12px;margin-top:2px">
+          {% if settings.show_pending_entries %}
+            <b>Currently visible</b> — pulled from the Google Sheet, shown on tehsil + camp-director views.
+          {% else %}
+            <b>Currently hidden</b> — this column is not shown on the dashboard until you turn it on here.
+          {% endif %}
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('toggle_pending') }}">
+        <input type="hidden" name="show" value="{{ 'no' if settings.show_pending_entries else 'yes' }}">
+        <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#a63434' if settings.show_pending_entries else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
+          {% if settings.show_pending_entries %}Hide column{% else %}Show column{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
 </div>
 {{ site_footer() }}
 </body></html>

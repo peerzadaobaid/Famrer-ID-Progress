@@ -530,6 +530,27 @@ DEFAULT_PENDING_SHEET_URL = (
 PENDING_SHEET_URL = os.environ.get("PENDING_SHEET_URL", DEFAULT_PENDING_SHEET_URL)
 PENDING_CACHE_SECONDS = int(os.environ.get("PENDING_CACHE_SECONDS", "300"))  # 5 min
 
+# Portal-wide settings persisted to disk + GitHub. Currently just one flag:
+# show_pending_entries — admin toggles whether the Pending Entries column is
+# visible to all viewers on the dashboard.
+SETTINGS_FILE = os.path.join(DATA_DIR, "portal_settings.json")
+
+def load_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        return {"show_pending_entries": False}
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            s = json.load(f)
+        s.setdefault("show_pending_entries", False)
+        return s
+    except Exception:
+        return {"show_pending_entries": False}
+
+def save_settings(settings):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, sort_keys=True)
+
 # Column-name aliases (checked after norm_header normalization).
 PENDING_VILLAGE_HEADERS = ["village", "villagename", "village name", "reports.villagename", "villagescope", "name of village"]
 PENDING_TEHSIL_HEADERS  = ["tehsil", "subdistrictname", "sub district name", "subdistrict", "name of tehsil"]
@@ -832,6 +853,7 @@ def build_nested_structure():
             "columnsSeen": _pending_cache.get("columns_seen", []),
             "totalDistrict": sum(pending_map.values()) if pending_map else 0,
         },
+        "settings": load_settings(),
     }
 
 
@@ -884,7 +906,25 @@ def logout():
 @app.route("/admin")
 @admin_required
 def admin_home():
-    return render_template("admin.html")
+    return render_template("admin.html", settings=load_settings())
+
+
+@app.route("/admin/toggle-pending", methods=["POST"])
+@admin_required
+def toggle_pending():
+    s = load_settings()
+    s["show_pending_entries"] = (request.form.get("show") == "yes")
+    save_settings(s)
+    # Commit to GitHub so the setting persists past Render redeploys.
+    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+        try:
+            commit_to_github(SETTINGS_FILE, "data/portal_settings.json",
+                             "admin: {} pending entries column".format(
+                                 "show" if s["show_pending_entries"] else "hide"))
+        except Exception as e:
+            # Non-fatal — local save still worked.
+            pass
+    return redirect(url_for("admin_home"))
 
 
 # ---- Dashboard (public) --------------------------------------------------
