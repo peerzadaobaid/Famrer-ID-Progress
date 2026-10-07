@@ -77,17 +77,41 @@
     "t": "HAJIN",
     "v": "SRI HARI KARANGUND"
   },
+  "SUMBAL||GANASTAN": {
+    "n": "Sajad Ahmad Wani(JAEO)",
+    "p": "",
+    "t": "SUMBAL",
+    "v": "Ganastan"
+  },
   "SUMBAL||GUND I NOWGAM": {
     "n": "NA",
     "p": "",
     "t": "SUMBAL",
     "v": "Gund i Nowgam"
   },
+  "SUMBAL||GUNDIKHALIL": {
+    "n": "Mr Sajad Hussain (HDO)",
+    "p": "9906580671",
+    "t": "SUMBAL",
+    "v": "GUNDIKHALIL"
+  },
+  "SUMBAL||NOWGAM": {
+    "n": "Azad Ahmad Shah(JAEO)",
+    "p": "9906580671",
+    "t": "SUMBAL",
+    "v": "NOWGAM"
+  },
   "SUMBAL||ODINA": {
     "n": "Tariq Ahmad Sheikh",
     "p": "7780935280",
     "t": "SUMBAL",
     "v": "ODINA"
+  },
+  "SUMBAL||RAKHI SULTANPORA": {
+    "n": "Azad Ahmad Shah(JAEO)",
+    "p": "",
+    "t": "SUMBAL",
+    "v": "Rakhi Sultanpora"
   },
   "SUMBAL||SUMBAL INDERKOTE": {
     "n": "Sajad Ahmad Zargar(JAEO)",
@@ -96,7 +120,7 @@
     "v": "SUMBAL INDERKOTE"
   },
   "SUMBAL||TRIGAM": {
-    "n": "Mr sajad Ahmad (HDO)",
+    "n": "Mr Sajad Hussain (HDO)",
     "p": "9797756269",
     "t": "SUMBAL",
     "v": "Trigam"
