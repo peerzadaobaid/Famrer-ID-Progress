@@ -253,6 +253,7 @@
               <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
               <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="tehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -286,6 +287,7 @@
               <th class="num">Total Issued</th>
               <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="villageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -317,6 +319,7 @@
               <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
               <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="cdTehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -351,6 +354,7 @@
               <th class="num">Total Issued</th>
               <th class="num">Since 1 Oct</th>
               <th class="num" id="cdDirectorAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -384,6 +388,7 @@
               <th class="num">Total Issued</th>
               <th class="num">Since 1 Oct</th>
               <th class="num" id="cdVillageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -446,9 +451,10 @@ function cdNormName(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9\s]/
 
 /* ---------- RENDER: TEHSIL L1 ---------- */
 function renderTehsils(){
-  var body='',totAR=0;
+  var body='',totAR=0,totPend=0;
   for(var i=0;i<DATA.tehsils.length;i++){
     var t=DATA.tehsils[i]; var since=t.issued-(t.issuedBaseline||0); var ar=tehsilAddInRange(t,addFrom,addTo); totAR+=ar;
+    var pend=t.pending||0; totPend+=pend;
     var safe=t.tehsil.replace(/'/g,"\\'");
     body+='<tr class="clickable" onclick="showVillages(\''+safe+'\')">'
         +'<td>'+(i+1)+'</td>'
@@ -459,6 +465,7 @@ function renderTehsils(){
         +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
         +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+        +'<td class="num" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
         +'<td>'+pctBar(t.issued,t.target,'orange')+'</td>'
         +'<td class="num">'+t.approved.toLocaleString()+'</td>'
         +'<td>'+pctBar(t.approved,t.issued,'green')+'</td>'
@@ -475,6 +482,7 @@ function renderTehsils(){
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
     +'<td class="num">'+gA.toLocaleString()+'</td>'
     +'<td>'+pctBar(gA,gI,'green')+'</td>'
@@ -490,9 +498,10 @@ function renderVillages(tehsilName){
   document.getElementById('villageBreadcrumb').textContent=tehsilName;
   document.getElementById('villageCount').textContent=t.villages.length+' villages';
   var vs=t.villages.slice().sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
-  var body='',totAR=0;
+  var body='',totAR=0,totPend=0;
   for(var j=0;j<vs.length;j++){
     var v=vs[j]; var since=v.issued-(v.issuedBaseline||0); var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
+    var pend=v.pending||0; totPend+=pend;
     var rowCls=v.firstBucket?' class="first-bucket-row"':'';
     var badge=v.firstBucket?' <em class="first-bucket-badge">1st Bucket</em>':'';
     body+='<tr'+rowCls+'><td>'+(j+1)+'</td>'
@@ -501,6 +510,7 @@ function renderVillages(tehsilName){
         +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
         +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+        +'<td class="num" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
         +'<td>'+pctBar(v.issued,v.target)+'</td>'
         +'<td class="num">'+v.approved.toLocaleString()+'</td>'
         +'<td>'+pctBar(v.approved,v.issued)+'</td></tr>';
@@ -512,6 +522,7 @@ function renderVillages(tehsilName){
     +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(tS>0?'+':'')+tS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(t.issued,t.target)+'</td>'
     +'<td class="num">'+t.approved.toLocaleString()+'</td>'
     +'<td>'+pctBar(t.approved,t.issued)+'</td></tr>';
@@ -529,17 +540,17 @@ function cdCollect(){
       // Treat 'NA' / 'N/A' / 'Not Available' as 'no director assigned' — skip.
       var nUpper = String(v.campDirector.n).trim().toUpperCase();
       if (nUpper === 'NA' || nUpper === 'N/A' || nUpper === 'NOT AVAILABLE') continue;
-      vs.push({village:v.village,target:v.target,issued:v.issued,approved:v.approved,issuedBaseline:v.issuedBaseline||0,datedCounts:v.datedCounts||{},dir:{name:v.campDirector.n,phone:v.campDirector.p||''}});
+      vs.push({village:v.village,target:v.target,issued:v.issued,approved:v.approved,issuedBaseline:v.issuedBaseline||0,pending:v.pending||0,datedCounts:v.datedCounts||{},dir:{name:v.campDirector.n,phone:v.campDirector.p||''}});
     }
     if(vs.length) out.push({tehsil:t.tehsil,villages:vs});
   }
   return out;
 }
 function renderCDTehsils(){
-  var data=cdCollect(),body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,allSet={};
+  var data=cdCollect(),body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,gPend=0,allSet={};
   for(var i=0;i<data.length;i++){
-    var t=data[i],tg=0,is=0,ap=0,bl=0,ar=0,ds={};
-    for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; tg+=v.target;is+=v.issued;ap+=v.approved;bl+=v.issuedBaseline; ar+=villageAddInRange(v,addFrom,addTo); var k=cdNormName(v.dir.name)+'|'+(v.dir.phone||''); ds[k]=1; allSet[k]=1; }
+    var t=data[i],tg=0,is=0,ap=0,bl=0,ar=0,pend=0,ds={};
+    for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; tg+=v.target;is+=v.issued;ap+=v.approved;bl+=v.issuedBaseline; ar+=villageAddInRange(v,addFrom,addTo); pend+=(v.pending||0); var k=cdNormName(v.dir.name); ds[k]=1; allSet[k]=1; }
     var since=is-bl; var safe=t.tehsil.replace(/'/g,"\\'");
     body+='<tr class="clickable" onclick="showCDDirectors(\''+safe+'\')">'
       +'<td>'+(i+1)+'</td><td><strong>'+esc(t.tehsil)+'</strong></td>'
@@ -549,19 +560,21 @@ function renderCDTehsils(){
       +'<td class="num"><strong>'+is.toLocaleString()+'</strong></td>'
       +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
       +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
       +'<td>'+pctBar(is,tg,'orange')+'</td>'
       +'<td class="num">'+ap.toLocaleString()+'</td>'
       +'<td>'+pctBar(ap,is,'green')+'</td></tr>';
-    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=t.villages.length;gAR+=ar;
+    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=t.villages.length;gAR+=ar;gPend+=pend;
   }
   var gD=Object.keys(allSet).length, gS=gI-gB;
-  document.querySelector('#cdTehsilTable tbody').innerHTML=body||'<tr><td colspan="11" style="text-align:center;color:#888;padding:30px">No camp-director data yet.</td></tr>';
+  document.querySelector('#cdTehsilTable tbody').innerHTML=body||'<tr><td colspan="12" style="text-align:center;color:#888;padding:30px">No camp-director data yet.</td></tr>';
   document.querySelector('#cdTehsilTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+gD+'</td><td class="num">'+gV+'</td>'
     +'<td class="num">'+gT.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
     +'<td class="num">'+gA.toLocaleString()+'</td>'
     +'<td>'+pctBar(gA,gI,'green')+'</td></tr>';
@@ -575,7 +588,15 @@ function renderCDDirectors(tehsilName){
   for(var i=0;i<data.length;i++) if(data[i].tehsil===tehsilName){ t=data[i]; break; }
   if(!t){ showCDTehsils(); return; }
   var groups={};
-  for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; var k=cdNormName(v.dir.name)+'|'+(v.dir.phone||''); if(!groups[k]) groups[k]={name:v.dir.name,phone:v.dir.phone,villages:[]}; groups[k].villages.push(v); }
+  // Group by director name only (not name+phone). Same person with blank/different
+  // phone across villages still groups together. Phone shown = first non-empty seen.
+  for(var j=0;j<t.villages.length;j++){
+    var v=t.villages[j];
+    var k=cdNormName(v.dir.name);
+    if(!groups[k]) groups[k]={name:v.dir.name, phone:v.dir.phone||'', villages:[]};
+    if(!groups[k].phone && v.dir.phone) groups[k].phone = v.dir.phone;
+    groups[k].villages.push(v);
+  }
   var dirs=Object.keys(groups).map(function(k){
     var g = Object.assign({key:k}, groups[k]);
     // Pre-compute totals so we can sort by issue % high → low
@@ -588,11 +609,11 @@ function renderCDDirectors(tehsilName){
     if (b._issuePct !== a._issuePct) return b._issuePct - a._issuePct;
     return a.name.localeCompare(b.name);  // tie-break by name
   });
-  var body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0;
+  var body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,gPend=0;
   for(var d=0;d<dirs.length;d++){
-    var dir=dirs[d]; var tg=0,is=0,ap=0,bl=0,ar=0;
-    for(var k=0;k<dir.villages.length;k++){ tg+=dir.villages[k].target; is+=dir.villages[k].issued; ap+=dir.villages[k].approved; bl+=dir.villages[k].issuedBaseline; ar+=villageAddInRange(dir.villages[k],addFrom,addTo); }
-    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=dir.villages.length;gAR+=ar;
+    var dir=dirs[d]; var tg=0,is=0,ap=0,bl=0,ar=0,pend=0;
+    for(var k=0;k<dir.villages.length;k++){ tg+=dir.villages[k].target; is+=dir.villages[k].issued; ap+=dir.villages[k].approved; bl+=dir.villages[k].issuedBaseline; ar+=villageAddInRange(dir.villages[k],addFrom,addTo); pend+=(dir.villages[k].pending||0); }
+    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=dir.villages.length;gAR+=ar;gPend+=pend;
     var since=is-bl, multi=dir.villages.length>1;
     var safeT=tehsilName.replace(/'/g,"\\'"), safeK=dir.key.replace(/'/g,"\\'");
     var onclk=multi?' class="clickable" onclick="showCDVillages(\''+safeT+'\',\''+safeK+'\')"':'';
@@ -606,6 +627,7 @@ function renderCDDirectors(tehsilName){
       +'<td class="num"><strong>'+is.toLocaleString()+'</strong></td>'
       +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
       +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
       +'<td>'+pctBar(is,tg,'orange')+'</td>'
       +'<td class="num">'+ap.toLocaleString()+'</td>'
       +'<td>'+pctBar(ap,is,'green')+'</td></tr>';
@@ -617,6 +639,7 @@ function renderCDDirectors(tehsilName){
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
     +'<td class="num">'+gA.toLocaleString()+'</td>'
     +'<td>'+pctBar(gA,gI,'green')+'</td></tr>';
@@ -632,19 +655,20 @@ function renderCDVillages(tehsilName,dirKey){
   for(var i=0;i<data.length;i++) if(data[i].tehsil===tehsilName){ t=data[i]; break; }
   if(!t){ showCDTehsils(); return; }
   var vs=[],dirName='';
-  for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; if(cdNormName(v.dir.name)+'|'+(v.dir.phone||'')===dirKey){ vs.push(v); dirName=v.dir.name; } }
+  for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; if(cdNormName(v.dir.name)===dirKey){ vs.push(v); dirName=v.dir.name; } }
   if(!vs.length){ showCDDirectors(tehsilName); return; }
   // Sort villages under this director by issue % high → low
   vs.sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
-  var body='',gT=0,gI=0,gA=0,gB=0,gAR=0;
+  var body='',gT=0,gI=0,gA=0,gB=0,gAR=0,gPend=0;
   for(var j=0;j<vs.length;j++){
-    var v=vs[j], since=v.issued-v.issuedBaseline, ar=villageAddInRange(v,addFrom,addTo);
-    gT+=v.target;gI+=v.issued;gA+=v.approved;gB+=v.issuedBaseline;gAR+=ar;
+    var v=vs[j], since=v.issued-v.issuedBaseline, ar=villageAddInRange(v,addFrom,addTo), pend=v.pending||0;
+    gT+=v.target;gI+=v.issued;gA+=v.approved;gB+=v.issuedBaseline;gAR+=ar;gPend+=pend;
     body+='<tr><td>'+(j+1)+'</td><td><strong>'+esc(v.village)+'</strong></td>'
       +'<td class="num">'+v.target.toLocaleString()+'</td>'
       +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
       +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
       +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
       +'<td>'+pctBar(v.issued,v.target,'orange')+'</td>'
       +'<td class="num">'+v.approved.toLocaleString()+'</td>'
       +'<td>'+pctBar(v.approved,v.issued,'green')+'</td></tr>';
@@ -656,6 +680,7 @@ function renderCDVillages(tehsilName,dirKey){
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
     +'<td class="num">'+gA.toLocaleString()+'</td>'
     +'<td>'+pctBar(gA,gI,'green')+'</td></tr>';
@@ -715,7 +740,7 @@ function rerender(){
   if(document.getElementById('viewTehsil').classList.contains('active')) renderTehsils();
   if(document.getElementById('viewCDTehsil').classList.contains('active')) renderCDTehsils();
   if(document.getElementById('viewCDDirectors').classList.contains('active')){ var b=document.getElementById('cdDirBreadcrumb').textContent; if(b) renderCDDirectors(b); }
-  if(document.getElementById('viewCDVillages').classList.contains('active')){ var bc=document.getElementById('cdVilBreadcrumb').textContent; if(bc&&bc.indexOf(' › ')>=0){ var p=bc.split(' › '); var tn=p[0].trim(), dn=p[1].trim(); for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tn) for(var j=0;j<DATA.tehsils[i].villages.length;j++){ var cd=DATA.tehsils[i].villages[j].campDirector; if(cd&&cd.n===dn){ renderCDVillages(tn,cdNormName(cd.n)+'|'+(cd.p||'')); return; } } } }
+  if(document.getElementById('viewCDVillages').classList.contains('active')){ var bc=document.getElementById('cdVilBreadcrumb').textContent; if(bc&&bc.indexOf(' › ')>=0){ var p=bc.split(' › '); var tn=p[0].trim(), dn=p[1].trim(); for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tn) for(var j=0;j<DATA.tehsils[i].villages.length;j++){ var cd=DATA.tehsils[i].villages[j].campDirector; if(cd&&cd.n===dn){ renderCDVillages(tn,cdNormName(cd.n)); return; } } } }
 }
 
 // Camp Director Progress is the default open tab.

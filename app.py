@@ -516,6 +516,148 @@ def villages_seen_in_uploads():
                 seen[key] = {"tehsil": rec["tehsil"], "village": rec["village"]}
     return seen
 
+# =========================================================================
+# Pending Entries — pulled from the published Google Sheet
+# =========================================================================
+
+# The sheet is "Published to web → CSV" so this URL returns raw CSV with no auth.
+# Override by setting PENDING_SHEET_URL env var on Render if the URL changes.
+DEFAULT_PENDING_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/e/"
+    "2PACX-1vQ8OtxiJ6k3O37CNEbOgMW_XxOlXvdvKFc22-o0f7cnEBdQF_aBJ8EKjAtkRcnv9PM4jLV0PZ8fCKtq/"
+    "pub?output=csv"
+)
+PENDING_SHEET_URL = os.environ.get("PENDING_SHEET_URL", DEFAULT_PENDING_SHEET_URL)
+PENDING_CACHE_SECONDS = int(os.environ.get("PENDING_CACHE_SECONDS", "300"))  # 5 min
+
+# Column-name aliases (checked after norm_header normalization).
+PENDING_VILLAGE_HEADERS = ["village", "villagename", "village name", "reports.villagename", "villagescope", "name of village"]
+PENDING_TEHSIL_HEADERS  = ["tehsil", "subdistrictname", "sub district name", "subdistrict", "name of tehsil"]
+PENDING_COUNT_HEADERS   = [
+    "pendingentries", "pending entries",
+    "notyetsubmitted", "not yet submitted",
+    "pendingentriesonsubmissionportal", "pending entries on submission portal",
+    "notsubmitted", "not submitted",
+    "pending", "balance",
+]
+
+# In-process cache: (ts, data_or_error)
+_pending_cache = {"ts": 0, "map": {}, "error": None, "columns_seen": [], "rows_matched": 0}
+
+def _norm_header_cmp(s):
+    # Only alphanumeric, lowercase (space/underscore/punctuation stripped).
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+def fetch_pending_entries(force=False):
+    """Fetch the published Google Sheet and return {norm_key: pending_count}.
+    Caches for PENDING_CACHE_SECONDS. Fails silently (returns {} and records
+    the error in _pending_cache['error']) so the dashboard still renders.
+    """
+    import time, urllib.request
+    now = time.time()
+    if not force and (now - _pending_cache["ts"]) < PENDING_CACHE_SECONDS and _pending_cache["map"]:
+        return _pending_cache["map"]
+    if not PENDING_SHEET_URL:
+        _pending_cache.update({"ts": now, "map": {}, "error": "PENDING_SHEET_URL not set"})
+        return {}
+    try:
+        req = urllib.request.Request(PENDING_SHEET_URL, headers={
+            "User-Agent": "farmer-id-portal/1.0 (+https://github.com/)",
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        _pending_cache.update({"ts": now, "map": {}, "error": "fetch failed: {}".format(e)})
+        return {}
+
+    # Parse CSV
+    import io
+    try:
+        reader = csv.reader(io.StringIO(raw))
+        rows = list(reader)
+    except Exception as e:
+        _pending_cache.update({"ts": now, "map": {}, "error": "CSV parse failed: {}".format(e)})
+        return {}
+    if not rows or len(rows) < 2:
+        _pending_cache.update({"ts": now, "map": {}, "error": "sheet has no data rows"})
+        return {}
+
+    # Find header row — accept any row within the first 5 where expected columns are present.
+    header_row_idx = None
+    v_idx = t_idx = c_idx = -1
+    for ri in range(min(5, len(rows))):
+        header = rows[ri]
+        normed = [_norm_header_cmp(h) for h in header]
+        try_v = next((i for i, h in enumerate(normed) if any(h == _norm_header_cmp(cand) for cand in PENDING_VILLAGE_HEADERS)), -1)
+        try_t = next((i for i, h in enumerate(normed) if any(h == _norm_header_cmp(cand) for cand in PENDING_TEHSIL_HEADERS)), -1)
+        try_c = next((i for i, h in enumerate(normed) if any(h == _norm_header_cmp(cand) for cand in PENDING_COUNT_HEADERS)), -1)
+        if try_v >= 0 and try_c >= 0:
+            header_row_idx, v_idx, t_idx, c_idx = ri, try_v, try_t, try_c
+            break
+    if header_row_idx is None:
+        header_show = rows[0] if rows else []
+        _pending_cache.update({
+            "ts": now, "map": {},
+            "error": "couldn't find village + pending columns. Headers seen: {}".format(header_show),
+            "columns_seen": header_show,
+        })
+        return {}
+
+    def to_int(s):
+        s = str(s or "").strip().replace(",", "")
+        if not s:
+            return 0
+        try:
+            return int(float(s))
+        except ValueError:
+            return 0
+
+    out = {}
+    matched = 0
+    for row in rows[header_row_idx + 1:]:
+        if len(row) <= max(v_idx, c_idx):
+            continue
+        village = (row[v_idx] or "").strip()
+        if not village:
+            continue
+        tehsil = (row[t_idx] or "").strip() if t_idx >= 0 and t_idx < len(row) else ""
+        count  = to_int(row[c_idx])
+        if not tehsil:
+            # Try to find the tehsil by looking up the village in CAMP_DIRECTORS_59 or targets.
+            # Fallback: build key with normalized village only, prefixed by '*' as a wildcard match later.
+            # Simpler: iterate known villages to find a match by normalized village name alone.
+            matched_tehsil = _find_tehsil_for_village(village)
+            if matched_tehsil:
+                tehsil = matched_tehsil
+        if not tehsil:
+            continue  # can't match this row without tehsil
+        key = norm_key(tehsil, village)
+        out[key] = out.get(key, 0) + count
+        matched += 1
+
+    _pending_cache.update({
+        "ts": now, "map": out, "error": None,
+        "columns_seen": rows[header_row_idx],
+        "rows_matched": matched,
+    })
+    return out
+
+def _find_tehsil_for_village(village):
+    """When the sheet lacks a tehsil column, look up which tehsil the village
+    belongs to by scanning DEFAULT_TARGETS + CAMP_DIRECTORS_59. Returns tehsil
+    string or None.
+    """
+    v_norm = norm_name(village)
+    v_norm = VILLAGE_ALIAS.get(v_norm, v_norm)
+    for t, v, _tg in DEFAULT_TARGETS:
+        if norm_name(v) == v_norm or VILLAGE_ALIAS.get(norm_name(v), norm_name(v)) == v_norm:
+            return t
+    for k, cd in CAMP_DIRECTORS_59.items():
+        if k.split("||", 1)[1] == v_norm:
+            return cd["t"]
+    return None
+
+
 def effective_camp_directors():
     """Return merged camp-director map keyed by norm_key -> {n,p,t,v}.
     Entries whose name is 'NA' / 'N/A' (any case) are treated as 'no director'
@@ -539,6 +681,9 @@ def camp_director_for(tehsil, village):
 
 def build_nested_structure():
     cumulative, per_date, sorted_dates, errors = build_state()
+
+    # Pending Entries pulled from the published Google Sheet (cached).
+    pending_map = fetch_pending_entries()
 
     # Target map — DEFAULT_TARGETS + any overrides from data/targets.json.
     # Keep display spellings alongside targets.
@@ -594,6 +739,11 @@ def build_nested_structure():
             "campDirector": camp_director_for(rec["tehsil"], rec["village"]),
         }
 
+    # Attach pending-entries count from the Google Sheet (0 if the village
+    # isn't in the sheet or the sheet couldn't be fetched).
+    for key, v in villages.items():
+        v["pending"] = pending_map.get(key, 0)
+
     # Attach per-village datedCounts (incremental daily deltas, each positive int)
     daily = per_day_additions(per_date, sorted_dates)
     for d, data in daily.items():
@@ -625,7 +775,7 @@ def build_nested_structure():
     for canon in TEHSIL_REFERENCE:
         tehsils[canon] = {
             "tehsil": canon, "target": 0, "issued": 0, "approved": 0,
-            "issuedBaseline": 0, "approvedBaseline": 0,
+            "issuedBaseline": 0, "approvedBaseline": 0, "pending": 0,
             "villagesBucketed": 0, "bucketed": 0,
             "totalVillages": TEHSIL_REFERENCE[canon]["totalVillages"],
             "totalSurveyNos": TEHSIL_REFERENCE[canon]["totalSurveyNos"],
@@ -636,7 +786,7 @@ def build_nested_structure():
         if canon not in tehsils:
             tehsils[canon] = {
                 "tehsil": v["tehsil"], "target": 0, "issued": 0, "approved": 0,
-                "issuedBaseline": 0, "approvedBaseline": 0,
+                "issuedBaseline": 0, "approvedBaseline": 0, "pending": 0,
                 "villagesBucketed": 0, "bucketed": 0,
                 "totalVillages": 0, "totalSurveyNos": 0, "villages": [],
             }
@@ -646,6 +796,7 @@ def build_nested_structure():
         t["approved"] += v["approved"]
         t["issuedBaseline"] += v["issuedBaseline"]
         t["approvedBaseline"] += v["approvedBaseline"]
+        t["pending"] += v.get("pending", 0)
         if v["issued"] > 0:
             t["villagesBucketed"] += 1
         t["villages"].append(v)
@@ -674,6 +825,13 @@ def build_nested_structure():
         "generated": datetime.utcnow().isoformat() + "Z",
         "snapshotDates": [d for d in sorted_dates if d > BASELINE_DATE],
         "errors": errors,
+        "pendingMeta": {
+            "ok": bool(pending_map) and not _pending_cache.get("error"),
+            "error": _pending_cache.get("error"),
+            "rowsMatched": _pending_cache.get("rows_matched", 0),
+            "columnsSeen": _pending_cache.get("columns_seen", []),
+            "totalDistrict": sum(pending_map.values()) if pending_map else 0,
+        },
     }
 
 
