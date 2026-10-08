@@ -1,3 +1,4 @@
 {
-  "show_pending_entries": true
+  "show_pending_entries": true,
+  "show_pending_entries_tehsil": true
 }
