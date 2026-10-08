@@ -195,9 +195,11 @@ VILLAGE_ALIAS = {
     # Sumbal (CSV ← CD canonical)
     "WAHID PORA":           "WAHIDPORA",
     "GUND I KHALIL":        "GUNDIKHALIL",
+    "GNDI KHALIL":          "GUNDIKHALIL",
     "RAKH SHILVAT":         "RAKHI SHILVAT",
     "RAKH SULTAN PORA":     "RAKHI SULTANPORA",
     "SARAI DANGARPORA":     "SARIE DANGERPORA",
+    "SUMBAL INDERKOT":      "SUMBAL INDERKOTE",
     # Hajin
     "RAKH I HAJIN":         "RAKHI HAJIN",
     "GUNDI JAHANGIR":       "GUND JAHENGEER",
@@ -551,28 +553,44 @@ def save_settings(settings):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2, sort_keys=True)
 
-# Column-name aliases (checked after norm_header normalization).
+# Column-name aliases (checked after norm_header normalization — lowercase, no spaces/punctuation).
 PENDING_VILLAGE_HEADERS = ["village", "villagename", "village name", "reports.villagename", "villagescope", "name of village"]
 PENDING_TEHSIL_HEADERS  = ["tehsil", "subdistrictname", "sub district name", "subdistrict", "name of tehsil"]
-PENDING_COUNT_HEADERS   = [
-    "pendingentries", "pending entries",
-    "notyetsubmitted", "not yet submitted",
-    "pendingentriesonsubmissionportal", "pending entries on submission portal",
-    "notsubmitted", "not submitted",
-    "pending", "balance",
-]
 
-# In-process cache: (ts, data_or_error)
-_pending_cache = {"ts": 0, "map": {}, "error": None, "columns_seen": [], "rows_matched": 0}
+# Three columns that go into the Pending formula:
+#   Pending = max(0, Total Buckets − Generated − Not Generated)
+PENDING_TOTAL_HEADERS   = ["totalbuckets", "total buckets", "totalbucket", "total bucket",
+                           "buckets", "totalfarmerids", "total farmer ids", "total"]
+PENDING_GEN_HEADERS     = ["generated", "generatedfarmerids", "generated farmer ids",
+                           "farmeridsgenerated", "farmer ids generated", "issued", "done"]
+PENDING_NOTGEN_HEADERS  = ["notgenerated", "not generated", "notgeneratedfarmerids",
+                           "not generated farmer ids", "rejected", "excluded",
+                           "cannotbegenerated", "cannot be generated"]
+
+# Fallback: direct "Pending" column (used only if the three columns above can't all be found).
+PENDING_DIRECT_HEADERS  = ["pendingentries", "pending entries",
+                           "notyetsubmitted", "not yet submitted",
+                           "pendingentriesonsubmissionportal", "pending entries on submission portal",
+                           "notsubmitted", "not submitted",
+                           "pending", "balance"]
+
+# In-process cache
+_pending_cache = {"ts": 0, "map": {}, "error": None, "columns_seen": [], "rows_matched": 0, "formula": None}
 
 def _norm_header_cmp(s):
-    # Only alphanumeric, lowercase (space/underscore/punctuation stripped).
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+def _find_col(normed_header, candidates):
+    for i, h in enumerate(normed_header):
+        if any(h == _norm_header_cmp(cand) for cand in candidates):
+            return i
+    return -1
 
 def fetch_pending_entries(force=False):
     """Fetch the published Google Sheet and return {norm_key: pending_count}.
-    Caches for PENDING_CACHE_SECONDS. Fails silently (returns {} and records
-    the error in _pending_cache['error']) so the dashboard still renders.
+    Pending = max(0, Total Buckets − Generated − Not Generated).
+    Falls back to a direct "Pending" column if the three columns can't be found.
+    Fails silently so the dashboard still renders.
     """
     import time, urllib.request
     now = time.time()
@@ -591,7 +609,6 @@ def fetch_pending_entries(force=False):
         _pending_cache.update({"ts": now, "map": {}, "error": "fetch failed: {}".format(e)})
         return {}
 
-    # Parse CSV
     import io
     try:
         reader = csv.reader(io.StringIO(raw))
@@ -603,24 +620,43 @@ def fetch_pending_entries(force=False):
         _pending_cache.update({"ts": now, "map": {}, "error": "sheet has no data rows"})
         return {}
 
-    # Find header row — accept any row within the first 5 where expected columns are present.
+    # Find header row — accept any row within the first 5 where village + either
+    # (total+generated+notGenerated) OR a direct pending column is present.
     header_row_idx = None
-    v_idx = t_idx = c_idx = -1
+    v_idx = t_idx = -1
+    tot_idx = gen_idx = ng_idx = direct_idx = -1
+    formula = None
     for ri in range(min(5, len(rows))):
         header = rows[ri]
         normed = [_norm_header_cmp(h) for h in header]
-        try_v = next((i for i, h in enumerate(normed) if any(h == _norm_header_cmp(cand) for cand in PENDING_VILLAGE_HEADERS)), -1)
-        try_t = next((i for i, h in enumerate(normed) if any(h == _norm_header_cmp(cand) for cand in PENDING_TEHSIL_HEADERS)), -1)
-        try_c = next((i for i, h in enumerate(normed) if any(h == _norm_header_cmp(cand) for cand in PENDING_COUNT_HEADERS)), -1)
-        if try_v >= 0 and try_c >= 0:
-            header_row_idx, v_idx, t_idx, c_idx = ri, try_v, try_t, try_c
+        try_v   = _find_col(normed, PENDING_VILLAGE_HEADERS)
+        try_t   = _find_col(normed, PENDING_TEHSIL_HEADERS)
+        try_tot = _find_col(normed, PENDING_TOTAL_HEADERS)
+        try_gen = _find_col(normed, PENDING_GEN_HEADERS)
+        try_ng  = _find_col(normed, PENDING_NOTGEN_HEADERS)
+        try_dir = _find_col(normed, PENDING_DIRECT_HEADERS)
+        if try_v < 0:
+            continue
+        # Prefer the three-column formula
+        if try_tot >= 0 and try_gen >= 0 and try_ng >= 0:
+            header_row_idx, v_idx, t_idx = ri, try_v, try_t
+            tot_idx, gen_idx, ng_idx = try_tot, try_gen, try_ng
+            formula = "total - generated - not_generated"
             break
+        # Fallback to direct pending column
+        if try_dir >= 0:
+            header_row_idx, v_idx, t_idx, direct_idx = ri, try_v, try_t, try_dir
+            formula = "direct"
+            break
+
     if header_row_idx is None:
         header_show = rows[0] if rows else []
         _pending_cache.update({
             "ts": now, "map": {},
-            "error": "couldn't find village + pending columns. Headers seen: {}".format(header_show),
+            "error": ("couldn't find Village column with either (Total Buckets + Generated + Not Generated) "
+                      "or a direct Pending column. Headers seen: {}").format(header_show),
             "columns_seen": header_show,
+            "formula": None,
         })
         return {}
 
@@ -636,29 +672,35 @@ def fetch_pending_entries(force=False):
     out = {}
     matched = 0
     for row in rows[header_row_idx + 1:]:
-        if len(row) <= max(v_idx, c_idx):
+        if len(row) <= v_idx:
             continue
         village = (row[v_idx] or "").strip()
         if not village:
             continue
         tehsil = (row[t_idx] or "").strip() if t_idx >= 0 and t_idx < len(row) else ""
-        count  = to_int(row[c_idx])
+
+        if formula == "total - generated - not_generated":
+            total  = to_int(row[tot_idx]) if tot_idx < len(row) else 0
+            genn   = to_int(row[gen_idx]) if gen_idx < len(row) else 0
+            notgen = to_int(row[ng_idx])  if ng_idx  < len(row) else 0
+            pending = max(0, total - genn - notgen)
+        else:
+            pending = to_int(row[direct_idx]) if direct_idx < len(row) else 0
+
         if not tehsil:
-            # Try to find the tehsil by looking up the village in CAMP_DIRECTORS_59 or targets.
-            # Fallback: build key with normalized village only, prefixed by '*' as a wildcard match later.
-            # Simpler: iterate known villages to find a match by normalized village name alone.
             matched_tehsil = _find_tehsil_for_village(village)
             if matched_tehsil:
                 tehsil = matched_tehsil
         if not tehsil:
-            continue  # can't match this row without tehsil
+            continue  # can't place this row without tehsil
         key = norm_key(tehsil, village)
-        out[key] = out.get(key, 0) + count
+        out[key] = out.get(key, 0) + pending
         matched += 1
 
     _pending_cache.update({
         "ts": now, "map": out, "error": None,
         "columns_seen": rows[header_row_idx],
+        "formula": formula,
         "rows_matched": matched,
     })
     return out
@@ -851,6 +893,7 @@ def build_nested_structure():
             "error": _pending_cache.get("error"),
             "rowsMatched": _pending_cache.get("rows_matched", 0),
             "columnsSeen": _pending_cache.get("columns_seen", []),
+            "formula": _pending_cache.get("formula"),  # "total - generated - not_generated" or "direct"
             "totalDistrict": sum(pending_map.values()) if pending_map else 0,
         },
         "settings": load_settings(),
