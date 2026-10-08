@@ -567,15 +567,20 @@ PENDING_CACHE_SECONDS = int(os.environ.get("PENDING_CACHE_SECONDS", "300"))  # 5
 SETTINGS_FILE = os.path.join(DATA_DIR, "portal_settings.json")
 
 def load_settings():
+    defaults = {
+        "show_pending_entries": False,         # master toggle — governs CD views
+        "show_pending_entries_tehsil": False,  # extra flag — tehsil & village views only show pending when both this and the master are on
+    }
     if not os.path.exists(SETTINGS_FILE):
-        return {"show_pending_entries": False}
+        return defaults
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             s = json.load(f)
-        s.setdefault("show_pending_entries", False)
+        for k, v in defaults.items():
+            s.setdefault(k, v)
         return s
     except Exception:
-        return {"show_pending_entries": False}
+        return defaults
 
 def save_settings(settings):
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -974,7 +979,18 @@ def build_nested_structure():
     # PortalTarget is the per-village target already in this portal.
     # If the sheet only has a direct Pending column (no Total/Gen/NotGen),
     # we fall back to that figure as-is.
+    #
+    # First-bucket villages are special: they are the 40 villages with no
+    # camp director (buckets already done). The sheet-pending column doesn't
+    # apply to them, so we flag them and keep their numeric pending at 0 so
+    # they don't inflate tehsil totals. The dashboard renders them as "1st Bucket".
     for key, v in villages.items():
+        if v.get("firstBucket"):
+            v["pending"] = 0
+            v["pendingGenerated"] = 0
+            v["pendingNotGenerated"] = 0
+            v["pendingIsFirstBucket"] = True
+            continue
         pd = pending_map.get(key, {})
         if isinstance(pd, dict):
             gen_sh    = pd.get("generated", 0)
@@ -992,6 +1008,7 @@ def build_nested_structure():
             v["pending"] = int(pd or 0)
             v["pendingGenerated"] = 0
             v["pendingNotGenerated"] = 0
+        v["pendingIsFirstBucket"] = False
 
     # Attach per-village datedCounts (incremental daily deltas, each positive int)
     daily = per_day_additions(per_date, sorted_dates)
@@ -1144,14 +1161,28 @@ def toggle_pending():
     s = load_settings()
     s["show_pending_entries"] = (request.form.get("show") == "yes")
     save_settings(s)
-    # Commit to GitHub so the setting persists past Render redeploys.
     if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
         try:
             commit_to_github(SETTINGS_FILE, "data/portal_settings.json",
-                             "admin: {} pending entries column".format(
+                             "admin: {} pending entries column (master)".format(
                                  "show" if s["show_pending_entries"] else "hide"))
-        except Exception as e:
-            # Non-fatal — local save still worked.
+        except Exception:
+            pass
+    return redirect(url_for("admin_home"))
+
+
+@app.route("/admin/toggle-pending-tehsil", methods=["POST"])
+@admin_required
+def toggle_pending_tehsil():
+    s = load_settings()
+    s["show_pending_entries_tehsil"] = (request.form.get("show") == "yes")
+    save_settings(s)
+    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+        try:
+            commit_to_github(SETTINGS_FILE, "data/portal_settings.json",
+                             "admin: {} pending column on tehsil views".format(
+                                 "show" if s["show_pending_entries_tehsil"] else "hide"))
+        except Exception:
             pass
     return redirect(url_for("admin_home"))
 

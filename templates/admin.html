@@ -38,15 +38,17 @@
 
   <div class="card" style="margin-top:20px">
     <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Dashboard columns</h2>
-    <p style="color:#556;font-size:13.5px;margin-bottom:14px">Toggle optional columns on or off for everyone viewing the dashboard. The setting is saved to GitHub and takes effect after Render redeploys (~1 min).</p>
+    <p style="color:#556;font-size:13.5px;margin-bottom:14px">Toggle optional columns on or off for everyone viewing the dashboard. Settings are saved to GitHub and take effect after Render redeploys (~1 min).</p>
+
+    <!-- MASTER TOGGLE: Pending Entries column (camp-director views) -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fef2f2;border:1px solid #f0a0a0;border-radius:8px">
       <div>
-        <div style="font-weight:700;color:#a63434;font-size:14px">📋 Pending Entries column</div>
+        <div style="font-weight:700;color:#a63434;font-size:14px">📋 Pending Entries column — Camp Director views</div>
         <div style="color:#7a3434;font-size:12px;margin-top:2px">
           {% if settings.show_pending_entries %}
-            <b>Currently visible</b> — pulled from the Google Sheet, shown on tehsil + camp-director views.
+            <b>Currently visible</b> on Camp Director Progress &amp; Camp Director Villages. Pending = <code>Portal Target − Generated − Not Generated</code>.
           {% else %}
-            <b>Currently hidden</b> — this column is not shown on the dashboard until you turn it on here.
+            <b>Currently hidden</b> — turn on first; the tehsil-view toggle below only takes effect when this one is on.
           {% endif %}
         </div>
       </div>
@@ -54,6 +56,28 @@
         <input type="hidden" name="show" value="{{ 'no' if settings.show_pending_entries else 'yes' }}">
         <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#a63434' if settings.show_pending_entries else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
           {% if settings.show_pending_entries %}Hide column{% else %}Show column{% endif %}
+        </button>
+      </form>
+    </div>
+
+    <!-- SECONDARY TOGGLE: Pending column on tehsil & village views -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fff8ee;border:1px solid #e8c48a;border-radius:8px;margin-top:10px;{% if not settings.show_pending_entries %}opacity:0.65{% endif %}">
+      <div>
+        <div style="font-weight:700;color:#8a5a00;font-size:14px">📋 Pending Entries column — Tehsil &amp; Village views</div>
+        <div style="color:#7a5820;font-size:12px;margin-top:2px">
+          {% if settings.show_pending_entries and settings.show_pending_entries_tehsil %}
+            <b>Currently visible</b> on tehsil-wise and village drill-down. First-bucket villages show "1st Bucket" instead of a number.
+          {% elif settings.show_pending_entries_tehsil and not settings.show_pending_entries %}
+            Toggle is <b>ON</b> but will stay hidden until the master toggle above is also on.
+          {% else %}
+            <b>Currently hidden</b> — only takes effect when the master Pending toggle above is also on.
+          {% endif %}
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('toggle_pending_tehsil') }}">
+        <input type="hidden" name="show" value="{{ 'no' if settings.show_pending_entries_tehsil else 'yes' }}">
+        <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#8a5a00' if settings.show_pending_entries_tehsil else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
+          {% if settings.show_pending_entries_tehsil %}Hide on tehsil view{% else %}Show on tehsil view{% endif %}
         </button>
       </form>
     </div>

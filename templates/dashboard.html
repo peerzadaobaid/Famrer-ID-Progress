@@ -149,9 +149,13 @@
     footer { max-width: 1200px; margin: 20px auto; padding: 12px 20px; color: #668; font-size: 12px; text-align: center; border-top: 1px solid #e5ebf3; padding-top: 20px; }
     footer .credit { font-weight: 600; color: #305496; }
     {% if not state.settings.show_pending_entries %}
-    /* Admin toggle: Pending Entries column hidden */
+    /* Admin toggle: Pending Entries master toggle OFF — hide everywhere */
     .pending-col { display: none !important; }
+    {% elif not state.settings.show_pending_entries_tehsil %}
+    /* Admin toggle: Pending visible for CD views but hidden on tehsil/village views */
+    .pending-col-tehsil { display: none !important; }
     {% endif %}
+    .pending-first-bucket { font-style: italic; color: #8a5a00 !important; background: #fff8ee !important; font-weight: 600; font-size: 11px; }
 
     @media (max-width: 760px) {
       .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -257,7 +261,7 @@
               <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
               <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="tehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
-              <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th class="num pending-col pending-col-tehsil" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -291,7 +295,7 @@
               <th class="num">Total Issued</th>
               <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="villageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
-              <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th class="num pending-col pending-col-tehsil" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
               <th class="num">Approved</th>
               <th>Approval %</th>
@@ -469,7 +473,7 @@ function renderTehsils(){
         +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
         +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
-        +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
+        +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
         +'<td>'+pctBar(t.issued,t.target,'orange')+'</td>'
         +'<td class="num">'+t.approved.toLocaleString()+'</td>'
         +'<td>'+pctBar(t.approved,t.issued,'green')+'</td>'
@@ -486,7 +490,7 @@ function renderTehsils(){
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
-    +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
     +'<td class="num">'+gA.toLocaleString()+'</td>'
     +'<td>'+pctBar(gA,gI,'green')+'</td>'
@@ -505,16 +509,19 @@ function renderVillages(tehsilName){
   var body='',totAR=0,totPend=0;
   for(var j=0;j<vs.length;j++){
     var v=vs[j]; var since=v.issued-(v.issuedBaseline||0); var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
-    var pend=v.pending||0; totPend+=pend;
+    var pend=v.pending||0; if(!v.firstBucket) totPend+=pend;
     var rowCls=v.firstBucket?' class="first-bucket-row"':'';
     var badge=v.firstBucket?' <em class="first-bucket-badge">1st Bucket</em>':'';
+    var pendCell=v.firstBucket
+      ? '<td class="num pending-col pending-col-tehsil pending-first-bucket">1st Bucket</td>'
+      : '<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>';
     body+='<tr'+rowCls+'><td>'+(j+1)+'</td>'
         +'<td><strong>'+esc(v.village)+'</strong>'+badge+'</td>'
         +'<td class="num">'+v.target.toLocaleString()+'</td>'
         +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
         +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
-        +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
+        +pendCell
         +'<td>'+pctBar(v.issued,v.target)+'</td>'
         +'<td class="num">'+v.approved.toLocaleString()+'</td>'
         +'<td>'+pctBar(v.approved,v.issued)+'</td></tr>';
@@ -526,7 +533,7 @@ function renderVillages(tehsilName){
     +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(tS>0?'+':'')+tS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
-    +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(t.issued,t.target)+'</td>'
     +'<td class="num">'+t.approved.toLocaleString()+'</td>'
     +'<td>'+pctBar(t.approved,t.issued)+'</td></tr>';
