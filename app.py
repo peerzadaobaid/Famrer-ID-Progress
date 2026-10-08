@@ -483,12 +483,19 @@ def load_cd_overrides():
         return {}
 
 def load_village_mappings():
-    """Return admin-set village-name mappings used when reconciling the
+    """Return admin-set portal→sheet mappings used when reconciling the
     Google Sheet's village names with the portal's. Shape:
-      { "TEHSIL_NORM||SHEET_VILLAGE_NORM":  "PORTAL_VILLAGE_NORM" }
-    These are set from the admin Reconciliation page. They supplement the
-    built-in VILLAGE_ALIAS table (which is global); mappings are tehsil-scoped
-    so same-named villages across tehsils don't collide.
+      { "TEHSIL_NORM||PORTAL_VILLAGE_NORM":  "SHEET_VILLAGE_NORM_or_special" }
+
+    Portal villages are the authoritative, fixed set — one row per portal
+    village. The value is which sheet row (within the same tehsil) feeds
+    that portal village:
+      - absent / empty         → auto-match (exact norm, then VILLAGE_ALIAS)
+      - "__NONE__"             → no sheet row (don't pull any data)
+      - any other string       → the sheet-village norm to pull from
+
+    This lets admins deduplicate when the sheet has the same portal village
+    under two spellings — only the chosen sheet row contributes.
     """
     if not os.path.exists(VILLAGE_MAPPING_FILE):
         return {}
@@ -597,7 +604,8 @@ PENDING_DIRECT_HEADERS  = ["pendingentries", "pending entries",
                            "pending", "balance"]
 
 # In-process cache
-_pending_cache = {"ts": 0, "map": {}, "rows": [], "error": None,
+_pending_cache = {"ts": 0, "map": {}, "sheet_rows": [],
+                  "sheet_by_tehsil": {}, "error": None,
                   "columns_seen": [], "rows_matched": 0, "formula": None}
 
 def _norm_header_cmp(s):
@@ -609,47 +617,56 @@ def _find_col(normed_header, candidates):
             return i
     return -1
 
-def _resolve_sheet_village_to_portal(tehsil_raw, village_raw):
-    """Given a raw tehsil + village from the sheet, return
-      (portal_norm_key, canon_tehsil, portal_village_norm)
-    or (None, canon_tehsil, village_norm) if we can't place it inside the portal.
-
-    Resolution order:
-      1. Admin override from load_village_mappings() (tehsil-scoped, exact).
-      2. Built-in VILLAGE_ALIAS (global).
-      3. Raw normalized village name (no alias).
+def _all_portal_keys_with_display():
+    """Every village the portal knows about, keyed by norm_key. Value is
+    {tehsil_display, village_display, canon_tehsil, portal_village_norm}.
+    Union of DEFAULT_TARGETS (+ overrides) and CAMP_DIRECTORS_59 (+ overrides).
     """
-    canon_t = canonical_tehsil(tehsil_raw) or norm_name(tehsil_raw)
-    v_norm_raw = norm_name(village_raw)
-
-    # 1. Admin override (tehsil-scoped)
-    overrides = load_village_mappings()
-    override_key = canon_t + "||" + v_norm_raw
-    if override_key in overrides:
-        canon_v = overrides[override_key]
-        # Blank value means "ignore this row"
-        if canon_v == "":
-            return (None, canon_t, v_norm_raw)
-        return (canon_t + "||" + canon_v, canon_t, canon_v)
-
-    # 2. Built-in VILLAGE_ALIAS fallback
-    canon_v = VILLAGE_ALIAS.get(v_norm_raw, v_norm_raw)
-    return (canon_t + "||" + canon_v, canon_t, canon_v)
+    out = {}
+    def _add(t_disp, v_disp):
+        canon_t = canonical_tehsil(t_disp) or norm_name(t_disp)
+        v_norm  = norm_name(v_disp)
+        v_norm  = VILLAGE_ALIAS.get(v_norm, v_norm)
+        k = canon_t + "||" + v_norm
+        if k not in out:
+            out[k] = {
+                "tehsil_display": t_disp,
+                "village_display": v_disp,
+                "canon_tehsil": canon_t,
+                "portal_village_norm": v_norm,
+            }
+    for t, v, _tg in effective_targets():
+        _add(t, v)
+    for k, cd in effective_camp_directors().items():
+        _add(cd.get("t", ""), cd.get("v", ""))
+    return out
 
 def fetch_pending_entries(force=False):
     """Fetch the published Google Sheet and return
         {portal_norm_key: {"generated": int, "notgen": int, "total": int,
-                           "sheet_tehsil": str, "sheet_village": str}}
+                           "has_direct": bool, "direct_pending": int,
+                           "sheet_tehsil": str, "sheet_village": str,
+                           "source": "manual" | "exact" | "alias"}}
+
+    Two-pass flow:
+      1. Scan every sheet row, group by (canon_tehsil, sheet_village_norm_raw).
+      2. For each portal village (DEFAULT_TARGETS + overrides + CAMP_DIRECTORS_59),
+         pull the matching sheet row:
+            - admin mapping (portal_key → sheet_village_norm) wins;
+              '__NONE__' means "no sheet row"
+            - else exact match of portal_village_norm in that tehsil's sheet rows
+            - else VILLAGE_ALIAS lookup (sheet_village_norm after alias == portal_village_norm)
+
     The dashboard then computes
         pending = max(0, portal_target − generated − notgen)
     using the per-village target already in the portal.
 
     If the sheet has a direct Pending column but no Total/Generated/NotGen,
-    the dict carries just {"direct_pending": int, …} and the dashboard uses
-    that value as-is.
+    the dict carries 'has_direct': True and the dashboard uses direct_pending as-is.
 
-    Also populates _pending_cache['rows'] with the full matched + unmatched row
-    list for the admin Reconciliation page.
+    Also populates _pending_cache['sheet_rows'] (flat list of all sheet rows)
+    and _pending_cache['sheet_by_tehsil'] = {canon_tehsil: {sheet_v_norm: row_data}}
+    for the admin Reconciliation page.
     Fails silently so the dashboard still renders.
     """
     import time, urllib.request
@@ -657,7 +674,8 @@ def fetch_pending_entries(force=False):
     if not force and (now - _pending_cache["ts"]) < PENDING_CACHE_SECONDS and _pending_cache["map"]:
         return _pending_cache["map"]
     if not PENDING_SHEET_URL:
-        _pending_cache.update({"ts": now, "map": {}, "rows": [], "error": "PENDING_SHEET_URL not set"})
+        _pending_cache.update({"ts": now, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {},
+                               "error": "PENDING_SHEET_URL not set"})
         return {}
     try:
         req = urllib.request.Request(PENDING_SHEET_URL, headers={
@@ -666,7 +684,8 @@ def fetch_pending_entries(force=False):
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
     except Exception as e:
-        _pending_cache.update({"ts": now, "map": {}, "rows": [], "error": "fetch failed: {}".format(e)})
+        _pending_cache.update({"ts": now, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {},
+                               "error": "fetch failed: {}".format(e)})
         return {}
 
     import io
@@ -674,10 +693,12 @@ def fetch_pending_entries(force=False):
         reader = csv.reader(io.StringIO(raw))
         rows = list(reader)
     except Exception as e:
-        _pending_cache.update({"ts": now, "map": {}, "rows": [], "error": "CSV parse failed: {}".format(e)})
+        _pending_cache.update({"ts": now, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {},
+                               "error": "CSV parse failed: {}".format(e)})
         return {}
     if not rows or len(rows) < 2:
-        _pending_cache.update({"ts": now, "map": {}, "rows": [], "error": "sheet has no data rows"})
+        _pending_cache.update({"ts": now, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {},
+                               "error": "sheet has no data rows"})
         return {}
 
     # Find header row — accept any row within the first 5 where village + either
@@ -712,7 +733,7 @@ def fetch_pending_entries(force=False):
     if header_row_idx is None:
         header_show = rows[0] if rows else []
         _pending_cache.update({
-            "ts": now, "map": {}, "rows": [],
+            "ts": now, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {},
             "error": ("couldn't find Village column with either (Total Buckets + Generated + Not Generated) "
                       "or a direct Pending column. Headers seen: {}").format(header_show),
             "columns_seen": header_show,
@@ -729,9 +750,9 @@ def fetch_pending_entries(force=False):
         except ValueError:
             return 0
 
-    out = {}            # portal_norm_key -> aggregated per-village figures
-    detailed_rows = []  # one entry per sheet row for the reconciliation page
-    matched = 0
+    # ---- Pass 1: build sheet row index ----------------------------------
+    sheet_rows = []
+    sheet_by_tehsil = {}  # {canon_t: {sheet_v_norm_raw: aggregated row}}
     for row in rows[header_row_idx + 1:]:
         if len(row) <= v_idx:
             continue
@@ -749,7 +770,6 @@ def fetch_pending_entries(force=False):
             total = genn = notgen = 0
             direct_val = to_int(row[direct_idx]) if direct_idx < len(row) else 0
 
-        # Backfill tehsil from the village lookup if sheet lacks a tehsil column.
         inferred_tehsil = False
         if not tehsil:
             matched_tehsil = _find_tehsil_for_village(village)
@@ -757,51 +777,93 @@ def fetch_pending_entries(force=False):
                 tehsil = matched_tehsil
                 inferred_tehsil = True
 
-        if not tehsil:
-            # Still orphan — record for reconciliation but skip the dashboard map.
-            detailed_rows.append({
-                "sheet_tehsil": "",
-                "sheet_village": village,
-                "generated": genn, "notgen": notgen,
-                "total": total, "direct_pending": direct_val,
-                "portal_key": None, "canon_tehsil": "",
-                "portal_village_norm": norm_name(village),
-                "matched": False, "inferred_tehsil": False,
-            })
-            continue
+        canon_t = canonical_tehsil(tehsil) or norm_name(tehsil) if tehsil else ""
+        v_norm_raw = norm_name(village)
 
-        portal_key, canon_t, portal_v_norm = _resolve_sheet_village_to_portal(tehsil, village)
-
-        detailed_rows.append({
+        row_data = {
             "sheet_tehsil": tehsil,
             "sheet_village": village,
+            "canon_tehsil": canon_t,
+            "sheet_village_norm": v_norm_raw,
             "generated": genn, "notgen": notgen,
             "total": total, "direct_pending": direct_val,
-            "portal_key": portal_key,
-            "canon_tehsil": canon_t,
-            "portal_village_norm": portal_v_norm,
-            "matched": portal_key is not None,
             "inferred_tehsil": inferred_tehsil,
-        })
+        }
+        sheet_rows.append(row_data)
 
-        if portal_key is None:
-            continue  # admin set a blank override → skip from dashboard
+        # Index into sheet_by_tehsil; collide-sum if same (tehsil, village_norm) appears twice
+        if canon_t:
+            bucket = sheet_by_tehsil.setdefault(canon_t, {})
+            if v_norm_raw in bucket:
+                prev = bucket[v_norm_raw]
+                prev["generated"] += genn
+                prev["notgen"]    += notgen
+                prev["total"]     += total
+                if direct_val is not None:
+                    prev["direct_pending"] = (prev.get("direct_pending") or 0) + direct_val
+                prev["dup_count"] = prev.get("dup_count", 1) + 1
+            else:
+                bucket[v_norm_raw] = {
+                    "sheet_tehsil": tehsil, "sheet_village": village,
+                    "generated": genn, "notgen": notgen,
+                    "total": total, "direct_pending": direct_val,
+                    "dup_count": 1,
+                }
 
-        agg = out.setdefault(portal_key, {
-            "generated": 0, "notgen": 0, "total": 0,
-            "direct_pending": 0, "has_direct": False,
-            "sheet_tehsil": tehsil, "sheet_village": village,
-        })
-        agg["generated"] += genn
-        agg["notgen"]    += notgen
-        agg["total"]     += total
-        if direct_val is not None:
-            agg["direct_pending"] += direct_val
-            agg["has_direct"] = True
+    # ---- Pass 2: resolve each portal village to a sheet row -------------
+    mappings = load_village_mappings()
+    portal_keys = _all_portal_keys_with_display()
+    out = {}
+    matched = 0
+
+    for portal_key, pinfo in portal_keys.items():
+        canon_t = pinfo["canon_tehsil"]
+        portal_v_norm = pinfo["portal_village_norm"]
+        tehsil_sheets = sheet_by_tehsil.get(canon_t, {})
+
+        mapping = mappings.get(portal_key)
+        chosen = None
+        source = None
+
+        if mapping == "__NONE__":
+            # Admin explicitly chose "no sheet row"
+            continue
+        if mapping:
+            chosen = tehsil_sheets.get(mapping)
+            source = "manual"
+        if chosen is None:
+            # Auto-match: 1) exact norm match
+            if portal_v_norm in tehsil_sheets:
+                chosen = tehsil_sheets[portal_v_norm]
+                source = "exact"
+            else:
+                # 2) VILLAGE_ALIAS lookup — find any sheet row whose aliased norm == portal norm
+                for sv_norm, srow in tehsil_sheets.items():
+                    if VILLAGE_ALIAS.get(sv_norm, sv_norm) == portal_v_norm:
+                        chosen = srow
+                        source = "alias"
+                        break
+
+        if chosen is None:
+            continue
+
+        out[portal_key] = {
+            "generated": chosen["generated"],
+            "notgen":    chosen["notgen"],
+            "total":     chosen["total"],
+            "direct_pending": chosen.get("direct_pending") or 0,
+            "has_direct": chosen.get("direct_pending") is not None,
+            "sheet_tehsil":  chosen["sheet_tehsil"],
+            "sheet_village": chosen["sheet_village"],
+            "source": source,
+        }
         matched += 1
 
     _pending_cache.update({
-        "ts": now, "map": out, "rows": detailed_rows, "error": None,
+        "ts": now, "map": out,
+        "sheet_rows": sheet_rows,
+        "sheet_by_tehsil": sheet_by_tehsil,
+        "error": None,
         "columns_seen": rows[header_row_idx],
         "formula": formula,
         "rows_matched": matched,
@@ -1095,36 +1157,10 @@ def toggle_pending():
 
 
 # ---- Reconciliation (admin) ---------------------------------------------
-# Shows every row the Google Sheet is contributing, grouped by tehsil, with
-# the portal-village the sheet currently maps to. Admin can override the
-# mapping via a dropdown of portal villages in that tehsil to fix spelling
-# mismatches without a code change.
-
-def _portal_villages_by_tehsil():
-    """Return {canonical_tehsil: [{"norm": village_norm, "display": village_display}]}
-    built from DEFAULT_TARGETS + overrides + CAMP_DIRECTORS_59 so every
-    portal-known village in that tehsil can appear in the dropdown.
-    """
-    by_t = {}
-    def _add(t_disp, v_disp):
-        canon_t = canonical_tehsil(t_disp) or norm_name(t_disp)
-        v_norm  = norm_name(v_disp)
-        v_norm  = VILLAGE_ALIAS.get(v_norm, v_norm)
-        bucket = by_t.setdefault(canon_t, {})
-        # Prefer the first display spelling we saw per norm
-        bucket.setdefault(v_norm, v_disp)
-    for t, v, _tg in effective_targets():
-        _add(t, v)
-    for k, cd in effective_camp_directors().items():
-        _add(cd.get("t", ""), cd.get("v", ""))
-    # Flatten + sort alphabetically
-    out = {}
-    for t, bucket in by_t.items():
-        rows = [{"norm": vn, "display": disp} for vn, disp in bucket.items()]
-        rows.sort(key=lambda r: r["display"].upper())
-        out[t] = rows
-    return out
-
+# One row per PORTAL VILLAGE (the authoritative set), grouped by tehsil, with
+# a dropdown of SHEET-SIDE village names (within that tehsil) picking which
+# sheet row feeds this portal village. Handles sheets where the same portal
+# village appears under two different spellings.
 
 @app.route("/admin/reconciliation", methods=["GET", "POST"])
 @admin_required
@@ -1133,137 +1169,163 @@ def reconciliation():
     saved = False
 
     if request.method == "POST":
-        # Each sheet row posts "map::<override_key>" = "<portal_village_norm>"
-        # where override_key is "CANON_TEHSIL||SHEET_VILLAGE_NORM_RAW".
-        # Blank value → no override (fall back to VILLAGE_ALIAS / raw match).
-        # Special value "__IGNORE__" → store empty string, meaning "skip this row".
+        # Each portal village posts "map::<portal_norm_key>" = "<sheet_village_norm>"
+        # Blank value → no override (fall back to exact / alias auto-match).
+        # Special "__NONE__" → explicitly no sheet row (don't pull data).
         new_mappings = {}
         for key, val in request.form.items():
             if not key.startswith("map::"):
                 continue
-            ov_key = key[len("map::"):]
+            portal_key = key[len("map::"):]
             val = (val or "").strip()
             if val == "":
-                continue  # don't persist an empty override
-            if val == "__IGNORE__":
-                new_mappings[ov_key] = ""   # explicit ignore
-            else:
-                new_mappings[ov_key] = val
+                continue
+            new_mappings[portal_key] = val
         save_village_mappings(new_mappings)
         if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
             try:
                 commit_to_github(VILLAGE_MAPPING_FILE, "data/village_mappings.json",
-                                 "admin: update village-name mappings for pending-entries reconciliation")
+                                 "admin: update portal→sheet village mappings")
                 saved = True
             except Exception as e:
                 error = "Saved locally but GitHub push failed: {}".format(e)
         else:
             saved = True
         # Blow the pending cache so the next fetch re-resolves with the new overrides.
-        _pending_cache.update({"ts": 0, "map": {}, "rows": []})
+        _pending_cache.update({"ts": 0, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {}})
 
     # Force a fresh fetch so admin always sees the latest sheet.
-    fetch_pending_entries(force=True)
-    rows = list(_pending_cache.get("rows") or [])
-    fetch_error = _pending_cache.get("error")
+    pending_map = fetch_pending_entries(force=True)
+    sheet_by_tehsil = _pending_cache.get("sheet_by_tehsil") or {}
+    sheet_rows      = _pending_cache.get("sheet_rows") or []
+    fetch_error     = _pending_cache.get("error")
+    formula         = _pending_cache.get("formula")
 
-    # Figure out each row's current target / effective pending (using portal target).
-    targets = {}
-    for t, v, tg in effective_targets():
-        targets[norm_key(t, v)] = tg
+    # Per-portal-village target lookup (from Set Targets).
+    targets = {norm_key(t, v): tg for t, v, tg in effective_targets()}
 
     overrides = load_village_mappings()
-    portal_villages = _portal_villages_by_tehsil()
-    canon_tehsils = sorted(TEHSIL_REFERENCE.keys())
+    portal_keys = _all_portal_keys_with_display()
+    canon_tehsils = sorted(set(TEHSIL_REFERENCE.keys()) | set(p["canon_tehsil"] for p in portal_keys.values()))
 
-    # Build per-tehsil groups for the template.
+    # Sheet-village options available for each tehsil (dropdown values)
+    options_by_tehsil = {}
+    for t, bucket in sheet_by_tehsil.items():
+        opts = []
+        for sv_norm, data in bucket.items():
+            label = data["sheet_village"]
+            if data.get("dup_count", 1) > 1:
+                label += " ({}x)".format(data["dup_count"])
+            opts.append({"norm": sv_norm, "display": label,
+                         "generated": data["generated"], "notgen": data["notgen"],
+                         "total": data["total"]})
+        opts.sort(key=lambda o: o["display"].upper())
+        options_by_tehsil[t] = opts
+
+    # Group portal villages by tehsil
     groups = {t: [] for t in canon_tehsils}
-    orphans = []  # sheet rows whose tehsil is empty / unknown
-    for r in rows:
-        canon_t = r.get("canon_tehsil") or ""
-        override_key = canon_t + "||" + r.get("portal_village_norm", "") \
-            if canon_t else ""
-        # Rebuild override_key using the SHEET village (not the resolved one) so
-        # changing a dropdown edits that sheet-village override specifically.
-        sheet_v_norm_raw = norm_name(r.get("sheet_village", ""))
-        override_key = canon_t + "||" + sheet_v_norm_raw if canon_t else ""
-
-        portal_key = r.get("portal_key")
-        target = targets.get(portal_key, 0) if portal_key else 0
-        if r.get("direct_pending") is not None:
-            pending = r.get("direct_pending") or 0
-        else:
-            if target > 0:
-                pending = max(0, target - r.get("generated", 0) - r.get("notgen", 0))
-            else:
-                pending = 0
+    for pkey, pinfo in portal_keys.items():
+        canon_t = pinfo["canon_tehsil"]
+        portal_v_norm = pinfo["portal_village_norm"]
+        target = targets.get(pkey, 0)
+        pdata  = pending_map.get(pkey)
 
         # What's currently selected in the dropdown?
-        current_override = overrides.get(override_key, None)
-        if current_override is None:
-            # No admin override → whatever _resolve picked
-            current_sel = r.get("portal_village_norm", "")
-        elif current_override == "":
-            current_sel = "__IGNORE__"
+        override = overrides.get(pkey)
+        if override == "__NONE__":
+            current_sel = "__NONE__"
+        elif override:
+            current_sel = override
+        elif pdata is not None:
+            current_sel = norm_name(pdata.get("sheet_village", ""))
         else:
-            current_sel = current_override
+            current_sel = ""  # auto, nothing matched
 
-        row_data = {
-            "override_key": override_key,
-            "sheet_tehsil": r.get("sheet_tehsil", ""),
-            "sheet_village": r.get("sheet_village", ""),
-            "portal_village_norm": r.get("portal_village_norm", ""),
-            "generated": r.get("generated", 0),
-            "notgen": r.get("notgen", 0),
-            "total": r.get("total", 0),
-            "direct_pending": r.get("direct_pending"),
-            "target": target,
-            "pending": pending,
-            "matched": r.get("matched", False) and portal_key in targets,
-            "has_override": override_key in overrides,
-            "current_sel": current_sel,
-            "options": portal_villages.get(canon_t, []),
+        # Compute figures
+        gen    = pdata["generated"] if pdata else 0
+        notgen = pdata["notgen"]    if pdata else 0
+        if pdata and pdata.get("has_direct"):
+            pending = pdata.get("direct_pending", 0)
+        elif target > 0:
+            pending = max(0, target - gen - notgen)
+        else:
+            pending = 0
+
+        source = pdata.get("source") if pdata else None  # 'manual' / 'exact' / 'alias' / None
+
+        row = {
+            "portal_key": pkey,
             "canon_tehsil": canon_t,
+            "tehsil_display": pretty_tehsil(canon_t),
+            "portal_village": pinfo["village_display"],
+            "portal_village_norm": portal_v_norm,
+            "sheet_village": pdata.get("sheet_village", "") if pdata else "",
+            "target": target,
+            "generated": gen,
+            "notgen": notgen,
+            "pending": pending,
+            "has_sheet_row": pdata is not None,
+            "source": source,
+            "has_override": pkey in overrides,
+            "current_sel": current_sel,
+            "options": options_by_tehsil.get(canon_t, []),
         }
+        groups.setdefault(canon_t, []).append(row)
 
-        if not canon_t or canon_t not in groups:
-            orphans.append(row_data)
-        else:
-            groups[canon_t].append(row_data)
-
-    # Sort villages inside each tehsil alphabetically by sheet-village spelling.
+    # Sort each tehsil's villages alphabetically by portal spelling
     for t in groups:
-        groups[t].sort(key=lambda r: r["sheet_village"].upper())
-    orphans.sort(key=lambda r: (r["sheet_tehsil"].upper(), r["sheet_village"].upper()))
+        groups[t].sort(key=lambda r: (r["portal_village"] or "").upper())
 
     # Tehsil-level totals
     tehsil_rows = []
     for t in canon_tehsils:
-        rows_in_t = groups[t]
-        total_gen    = sum(r["generated"] for r in rows_in_t)
-        total_notgen = sum(r["notgen"]    for r in rows_in_t)
-        total_target = sum(r["target"]    for r in rows_in_t)
-        total_pending = sum(r["pending"]  for r in rows_in_t)
+        rows_in_t = groups.get(t, [])
+        if not rows_in_t:
+            continue
         tehsil_rows.append({
             "tehsil": t,
             "display": pretty_tehsil(t),
             "rows": rows_in_t,
-            "total_gen": total_gen,
-            "total_notgen": total_notgen,
-            "total_target": total_target,
-            "total_pending": total_pending,
+            "total_target":  sum(r["target"]    for r in rows_in_t),
+            "total_gen":     sum(r["generated"] for r in rows_in_t),
+            "total_notgen":  sum(r["notgen"]    for r in rows_in_t),
+            "total_pending": sum(r["pending"]   for r in rows_in_t),
             "row_count": len(rows_in_t),
+            "no_sheet_count": sum(1 for r in rows_in_t if not r["has_sheet_row"]),
         })
+
+    # Sheet rows NOT consumed by any portal village (orphans the admin can't currently see)
+    consumed_sheet_tuples = set()
+    for pkey, pdata in pending_map.items():
+        sv = pdata.get("sheet_village", "")
+        canon_t = pkey.split("||", 1)[0] if "||" in pkey else ""
+        consumed_sheet_tuples.add((canon_t, norm_name(sv)))
+
+    unused_sheet_rows = []
+    for r in sheet_rows:
+        canon_t = r.get("canon_tehsil", "")
+        sv_norm = r.get("sheet_village_norm", "")
+        if (canon_t, sv_norm) in consumed_sheet_tuples:
+            continue
+        unused_sheet_rows.append({
+            "sheet_tehsil": r.get("sheet_tehsil", ""),
+            "canon_tehsil": canon_t,
+            "sheet_village": r.get("sheet_village", ""),
+            "generated": r.get("generated", 0),
+            "notgen": r.get("notgen", 0),
+            "total": r.get("total", 0),
+        })
+    unused_sheet_rows.sort(key=lambda r: (r["sheet_tehsil"].upper(), r["sheet_village"].upper()))
 
     return render_template("reconciliation.html",
                            tehsil_rows=tehsil_rows,
-                           orphans=orphans,
+                           unused_sheet_rows=unused_sheet_rows,
                            fetch_error=fetch_error,
-                           formula=_pending_cache.get("formula"),
+                           formula=formula,
                            columns_seen=_pending_cache.get("columns_seen", []),
                            rows_matched=_pending_cache.get("rows_matched", 0),
-                           error=error, saved=saved,
-                           total_rows=sum(len(groups[t]) for t in groups) + len(orphans))
+                           sheet_row_total=len(sheet_rows),
+                           error=error, saved=saved)
 
 
 # ---- Dashboard (public) --------------------------------------------------
