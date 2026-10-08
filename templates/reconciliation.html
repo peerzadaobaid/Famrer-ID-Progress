@@ -1,0 +1,226 @@
+{% from "_base_styles.html" import base_styles, site_footer %}
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reconciliation · Farmer ID Progress</title>
+{{ base_styles() }}
+<style>
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: #556; }
+  .legend .chip { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+  .swatch.ok      { background: #fff; }
+  .swatch.warn    { background: #fff8ee; }
+  .swatch.bad     { background: #fde8e8; }
+  .swatch.ignore  { background: #eef2f7; }
+  .tehsil-section { margin-bottom: 22px; }
+  .tehsil-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: linear-gradient(135deg, #1a3a5c 0%, #305496 100%); color: #fff; border-radius: 8px 8px 0 0; }
+  .tehsil-head h3 { font-size: 14px; font-weight: 700; letter-spacing: 0.3px; }
+  .tehsil-head .mini { font-size: 11.5px; opacity: 0.85; }
+  .tehsil-body { background: #fff; border: 1px solid #e5ebf3; border-top: none; border-radius: 0 0 8px 8px; overflow-x: auto; }
+  table.recon { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.recon th, table.recon td { padding: 7px 9px; text-align: left; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+  table.recon th { background: #f6f8fb; font-weight: 600; font-size: 10.5px; color: #556; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  table.recon td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.recon td.sheet-v { font-weight: 600; color: #1a3a5c; }
+  table.recon td.portal-v { color: #556; font-size: 11.5px; }
+  table.recon select { padding: 5px 6px; font-size: 12px; border: 1px solid #c7d6ea; border-radius: 5px; width: 100%; min-width: 170px; max-width: 240px; background: #fff; color: #1a3a5c; font-family: inherit; }
+  table.recon tr.unmatched         td { background: #fde8e8; }
+  table.recon tr.has-override      td { background: #fff8ee; }
+  table.recon tr.ignored           td { background: #eef2f7; color: #888; }
+  table.recon tfoot td { font-weight: 700; background: #f6f8fb; }
+  .status-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px; }
+  .pill-matched  { background: #e6f4ea; color: #2a6b35; }
+  .pill-unmatched { background: #fde8e8; color: #a63434; }
+  .pill-override { background: #fff2d6; color: #8a5a00; }
+  .pill-ignore   { background: #e5ebf3; color: #556; }
+  .sticky-save { position: sticky; bottom: 0; background: #fff; padding: 14px 0; border-top: 1px solid #e5ebf3; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; z-index: 10; }
+  .meta-strip { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #556; margin-bottom: 14px; padding: 10px 14px; background: #eef5fb; border-left: 3px solid #305496; border-radius: 4px; }
+  .meta-strip b { color: #1a3a5c; }
+  .orphan-note { color: #a63434; font-size: 12px; margin-top: 6px; }
+  @media (max-width: 760px) {
+    table.recon select { min-width: 140px; max-width: 180px; }
+    table.recon th, table.recon td { padding: 6px 7px; font-size: 11.5px; }
+  }
+</style>
+</head><body>
+<div class="header"><div class="header-inner">
+  <div>
+    <h1>Reconciliation Data</h1>
+    <div class="sub">Tehsil-wise view of every row the Google Sheet contributes. Fix mismatches via the dropdown — portal villages per tehsil.</div>
+  </div>
+  <div class="nav">
+    <a href="{{ url_for('admin_home') }}">← Admin</a>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</div></div>
+
+<div class="container">
+  {% if saved %}
+    <div class="ok">✓ Mappings saved. The Pending Entries column on the dashboard will update on the next page load (sheet is cached for 5 min).</div>
+  {% endif %}
+  {% if error %}
+    <div class="err">⚠ {{ error }}</div>
+  {% endif %}
+  {% if fetch_error %}
+    <div class="err">⚠ Couldn't read the Google Sheet: {{ fetch_error }}</div>
+  {% endif %}
+
+  <div class="meta-strip">
+    <span><b>Rows pulled from sheet:</b> {{ total_rows }}</span>
+    <span><b>Rows matched to portal villages:</b> {{ rows_matched }}</span>
+    <span><b>Formula:</b>
+      {% if formula == 'total - generated - not_generated' %}
+        Pending = <b>Portal Target − Generated − Not Generated</b>
+      {% elif formula == 'direct' %}
+        Pending = direct column from sheet
+      {% else %}
+        —
+      {% endif %}
+    </span>
+    <span><b>Target source:</b> this portal (Set/Change Targets)</span>
+  </div>
+
+  <div class="legend">
+    <span class="chip"><span class="swatch ok"></span> matched (no override)</span>
+    <span class="chip"><span class="swatch warn"></span> admin override in effect</span>
+    <span class="chip"><span class="swatch bad"></span> unmatched — pick a portal village</span>
+    <span class="chip"><span class="swatch ignore"></span> ignored (skipped from totals)</span>
+  </div>
+
+  <form method="POST">
+    {% for group in tehsil_rows %}
+      {% if group.row_count > 0 %}
+      <div class="tehsil-section">
+        <div class="tehsil-head">
+          <h3>{{ group.display }}</h3>
+          <div class="mini">
+            {{ group.row_count }} row{{ 's' if group.row_count != 1 else '' }} ·
+            Target {{ "{:,}".format(group.total_target) }} ·
+            Gen {{ "{:,}".format(group.total_gen) }} ·
+            NotGen {{ "{:,}".format(group.total_notgen) }} ·
+            Pending {{ "{:,}".format(group.total_pending) }}
+          </div>
+        </div>
+        <div class="tehsil-body">
+          <table class="recon">
+            <thead>
+              <tr>
+                <th>Tehsil</th>
+                <th>Portal village</th>
+                <th>Sheet village</th>
+                <th>Map to (portal)</th>
+                <th class="num">Target</th>
+                <th class="num">Gen</th>
+                <th class="num">NotGen</th>
+                <th class="num">Pending</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in group.rows %}
+                {% set row_class = '' %}
+                {% if r.current_sel == '__IGNORE__' %}{% set row_class = 'ignored' %}
+                {% elif not r.matched %}{% set row_class = 'unmatched' %}
+                {% elif r.has_override %}{% set row_class = 'has-override' %}
+                {% endif %}
+                <tr class="{{ row_class }}">
+                  <td>{{ group.display }}</td>
+                  <td class="portal-v">
+                    {% if r.matched %}
+                      {{ r.portal_village_norm|title }}
+                    {% else %}
+                      <span style="color:#a63434">— no match —</span>
+                    {% endif %}
+                  </td>
+                  <td class="sheet-v">{{ r.sheet_village }}</td>
+                  <td>
+                    <select name="map::{{ r.override_key }}">
+                      <option value="">— auto (use portal spelling / alias) —</option>
+                      {% for opt in r.options %}
+                        <option value="{{ opt.norm }}" {% if r.current_sel == opt.norm %}selected{% endif %}>{{ opt.display }}</option>
+                      {% endfor %}
+                      <option value="__IGNORE__" {% if r.current_sel == '__IGNORE__' %}selected{% endif %}>— ignore this row —</option>
+                    </select>
+                  </td>
+                  <td class="num">{{ "{:,}".format(r.target) }}</td>
+                  <td class="num">{{ "{:,}".format(r.generated) }}</td>
+                  <td class="num">{{ "{:,}".format(r.notgen) }}</td>
+                  <td class="num">{{ "{:,}".format(r.pending) }}</td>
+                  <td>
+                    {% if r.current_sel == '__IGNORE__' %}
+                      <span class="status-pill pill-ignore">ignored</span>
+                    {% elif r.has_override %}
+                      <span class="status-pill pill-override">override</span>
+                    {% elif r.matched %}
+                      <span class="status-pill pill-matched">matched</span>
+                    {% else %}
+                      <span class="status-pill pill-unmatched">unmatched</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4">Totals</td>
+                <td class="num">{{ "{:,}".format(group.total_target) }}</td>
+                <td class="num">{{ "{:,}".format(group.total_gen) }}</td>
+                <td class="num">{{ "{:,}".format(group.total_notgen) }}</td>
+                <td class="num">{{ "{:,}".format(group.total_pending) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+
+    {% if orphans %}
+    <div class="tehsil-section">
+      <div class="tehsil-head" style="background: linear-gradient(135deg,#a63434 0%, #d84a4a 100%)">
+        <h3>Rows with no tehsil / unknown tehsil</h3>
+        <div class="mini">{{ orphans|length }} row{{ 's' if orphans|length != 1 else '' }}</div>
+      </div>
+      <div class="tehsil-body">
+        <div class="orphan-note" style="padding:10px 14px">
+          These sheet rows don't carry a tehsil the portal recognizes. The dropdown is disabled here — fix the sheet, or add an alias to <code>TEHSIL_ALIAS</code> in the code, then revisit.
+        </div>
+        <table class="recon">
+          <thead>
+            <tr>
+              <th>Sheet tehsil</th>
+              <th>Sheet village</th>
+              <th class="num">Gen</th>
+              <th class="num">NotGen</th>
+              <th class="num">Total (sheet)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in orphans %}
+              <tr class="unmatched">
+                <td>{{ r.sheet_tehsil or '—' }}</td>
+                <td class="sheet-v">{{ r.sheet_village }}</td>
+                <td class="num">{{ "{:,}".format(r.generated) }}</td>
+                <td class="num">{{ "{:,}".format(r.notgen) }}</td>
+                <td class="num">{{ "{:,}".format(r.total) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="sticky-save">
+      <div style="font-size:12.5px;color:#556">
+        Mappings are saved per <b>tehsil + sheet-village</b>. "Auto" means fall back to the portal's built-in alias table. "Ignore" drops that sheet row from totals entirely.
+      </div>
+      <button type="submit" class="submit">Save mappings &amp; refresh</button>
+    </div>
+  </form>
+</div>
+
+{{ site_footer() }}
+</body></html>
