@@ -5,11 +5,41 @@
     "t": "ALOOSA",
     "v": "Ashtangoo"
   },
+  "BANDIPORA||AHEMSHREIF": {
+    "n": "Mr Syed Shahnawaz Haji",
+    "p": "7889374549",
+    "t": "BANDIPORA",
+    "v": "AHEMSHREIF"
+  },
   "BANDIPORA||ARAGAM": {
     "n": "Hafiz Qazafi Khan(AEA)",
     "p": "9596184321",
     "t": "BANDIPORA",
     "v": "Aragam"
+  },
+  "BANDIPORA||ATHWATOO": {
+    "n": "Mr Zahoor Ahmad Bhat",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "ATHWATOO"
+  },
+  "BANDIPORA||AYATMULLA": {
+    "n": "Mr Syed Shahnawaz Haji",
+    "p": "7889374549",
+    "t": "BANDIPORA",
+    "v": "AYATMULLA"
+  },
+  "BANDIPORA||BHUTTO": {
+    "n": "Mr Rafiq Ahmad Bhat",
+    "p": "7780861724",
+    "t": "BANDIPORA",
+    "v": "BHUTTO"
+  },
+  "BANDIPORA||GUND DACHINA": {
+    "n": "Mr Parvaiz Ahmad Reshi",
+    "p": "7788932598",
+    "t": "BANDIPORA",
+    "v": "GUND DACHINA"
   },
   "BANDIPORA||GUNDPORA RAMPORA": {
     "n": "Hafiz Qazafi Khan(AEA)",
@@ -47,6 +77,18 @@
     "t": "BANDIPORA",
     "v": "WATAPORA"
   },
+  "GUREZ||GULSHANPORA": {
+    "n": "Mr Altaf Ahmad",
+    "p": "7051260966",
+    "t": "GUREZ",
+    "v": "Gulshanpora"
+  },
+  "GUREZ||KANZALWAN NAIL": {
+    "n": "Mr Altaf Ahmad",
+    "p": "7051260966",
+    "t": "GUREZ",
+    "v": "Kanzalwan-Nail"
+  },
   "HAJIN||GULSHANPORA": {
     "n": "Altaf Hassan Bhat (JAEO)",
     "p": "8493011248",
@@ -58,6 +100,12 @@
     "p": "9596657419",
     "t": "HAJIN",
     "v": "GUND- I- PRANG"
+  },
+  "HAJIN||GUND SADERKOOT": {
+    "n": "Mr Aejaz Ahmad Wani",
+    "p": "7889818735",
+    "t": "HAJIN",
+    "v": "Gund saderkoot"
   },
   "HAJIN||KOSUMBAGH": {
     "n": "NA",
@@ -83,6 +131,12 @@
     "t": "HAJIN",
     "v": "SRI HARI KARANGUND"
   },
+  "HAJIN||VIJPARA": {
+    "n": "Mr Aejaz Ahmad Wani",
+    "p": "7889818735",
+    "t": "HAJIN",
+    "v": "Vijpara"
+  },
   "SUMBAL||ASHAM": {
     "n": "Dr Suhail Ahmad",
     "p": "",
@@ -102,19 +156,19 @@
     "v": "Gund i Nowgam"
   },
   "SUMBAL||GUNDIKHALIL": {
-    "n": "Mr Sajad Hussain (HDO)",
+    "n": "Mr Irshad Ahmad Parray",
     "p": "9906580671",
     "t": "SUMBAL",
     "v": "GUNDIKHALIL"
   },
   "SUMBAL||HILALABAD": {
-    "n": "Dr Suhail Ahmad",
+    "n": "Mr Shabir Ahmad Dhobi",
     "p": "",
     "t": "SUMBAL",
     "v": "HILALABAD"
   },
   "SUMBAL||NOWGAM": {
-    "n": "Azad Ahmad Shah(JAEO)",
+    "n": "Mr Irshad Ahmad Parray",
     "p": "",
     "t": "SUMBAL",
     "v": "NOWGAM"
@@ -137,6 +191,12 @@
     "t": "SUMBAL",
     "v": "Rakhi Sultanpora"
   },
+  "SUMBAL||SARIE DANGERPORA": {
+    "n": "Mr Farooq Ahmad Bhat",
+    "p": "9149687674",
+    "t": "SUMBAL",
+    "v": "SARIE DANGERPORA"
+  },
   "SUMBAL||SUMBAL INDERKOTE": {
     "n": "Sajad Ahmad Zargar(JAEO)",
     "p": "9858332300",
@@ -144,7 +204,7 @@
     "v": "SUMBAL INDERKOTE"
   },
   "SUMBAL||TRIGAM": {
-    "n": "Mr Sajad Hussain (HDO)",
+    "n": "Mr Shabir Ahmad Dhobi",
     "p": "9797756269",
     "t": "SUMBAL",
     "v": "Trigam"
