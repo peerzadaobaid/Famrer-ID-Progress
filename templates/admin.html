@@ -13,6 +13,11 @@
   </div>
 </div></div>
 <div class="container">
+  {% if request.args.get('mirror') == 'ok' %}
+    <div class="ok">✓ {{ request.args.get('msg', 'Mirror refreshed.') }} The public mirror will reflect new data in ~30 s (GitHub Pages' propagation delay).</div>
+  {% elif request.args.get('mirror') == 'err' %}
+    <div class="err">⚠ {{ request.args.get('msg', 'Mirror refresh failed.') }}</div>
+  {% endif %}
   <div class="admin-tiles">
     <a href="{{ url_for('upload') }}" class="admin-tile">
       <span class="icon">⬆</span>
@@ -79,6 +84,29 @@
         <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#8a5a00' if settings.show_pending_entries_tehsil else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
           {% if settings.show_pending_entries_tehsil %}Hide on tehsil view{% else %}Show on tehsil view{% endif %}
         </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Public mirror site</h2>
+    <p style="color:#556;font-size:13.5px;margin-bottom:14px">A read-only static snapshot of the dashboard, served from GitHub Pages. Scales to any number of viewers with no cold starts — share this URL instead of the Render URL for public viewing. Pending Entries column is intentionally hidden on the mirror. Auto-refreshes whenever a CSV is uploaded or targets / camp directors are edited.</p>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;background:#eef5fb;border:1px solid #c7d6ea;border-radius:8px">
+      <div style="min-width:0;flex:1 1 320px">
+        <div style="font-weight:700;color:#1a3a5c;font-size:14px">🌐 Mirror URL</div>
+        <div style="color:#556;font-size:12px;margin-top:4px;word-break:break-all">
+          {% if mirror_url %}
+            <a href="{{ mirror_url }}" target="_blank" rel="noopener" style="color:#305496;font-weight:600">{{ mirror_url }}</a>
+          {% else %}
+            <i>GH_REPO env var not set — mirror URL unknown.</i>
+          {% endif %}
+        </div>
+        <div style="color:#7a8899;font-size:11.5px;margin-top:6px">
+          First-time setup: open your repo's <b>Settings → Pages</b> on GitHub, set <b>Source: Deploy from a branch</b>, <b>Branch: main</b>, <b>Folder: /docs</b>, click Save. Pages takes ~1 minute the first time; after that each refresh is near-instant.
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('publish_mirror_route') }}">
+        <button type="submit" class="submit" style="padding:9px 18px">Refresh mirror now</button>
       </form>
     </div>
   </div>

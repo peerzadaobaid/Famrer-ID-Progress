@@ -273,6 +273,9 @@ def pretty_tehsil(tehsil):
 # =========================================================================
 
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "data"))
+MIRROR_DIR    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
+MIRROR_FILE   = os.path.join(MIRROR_DIR, "index.html")
+NOJEKYLL_FILE = os.path.join(MIRROR_DIR, ".nojekyll")
 
 # Column aliases (match AGRISTACK's various export schemas)
 TEHSIL_HEADERS  = ["subDistrictName", "Sub District Name", "Sub-District Name", "subdistrictname", "tehsilName", "Tehsil"]
@@ -912,11 +915,13 @@ def camp_director_for(tehsil, village):
     return effective_camp_directors().get(norm_key(tehsil, village))
 
 
-def build_nested_structure():
+def build_nested_structure(skip_pending=False):
     cumulative, per_date, sorted_dates, errors = build_state()
 
     # Pending Entries pulled from the published Google Sheet (cached).
-    pending_map = fetch_pending_entries()
+    # The mirror build sets skip_pending=True so the static publish never
+    # waits on Google — the mirror has the Pending column hidden anyway.
+    pending_map = {} if skip_pending else fetch_pending_entries()
 
     # Target map — DEFAULT_TARGETS + any overrides from data/targets.json.
     # Keep display spellings alongside targets.
@@ -1152,7 +1157,8 @@ def logout():
 @app.route("/admin")
 @admin_required
 def admin_home():
-    return render_template("admin.html", settings=load_settings())
+    return render_template("admin.html", settings=load_settings(),
+                           mirror_url=_mirror_pages_url())
 
 
 @app.route("/admin/toggle-pending", methods=["POST"])
@@ -1169,6 +1175,27 @@ def toggle_pending():
         except Exception:
             pass
     return redirect(url_for("admin_home"))
+
+
+@app.route("/admin/publish-mirror", methods=["POST"])
+@admin_required
+def publish_mirror_route():
+    """Manually (re)publish the static GitHub Pages mirror."""
+    result = publish_mirror()
+    # Stash a one-shot flash via query string so admin page can show feedback.
+    flash_tag = "ok" if result["ok"] else "err"
+    flash_msg = "mirror refreshed ({} bytes)".format(result["bytes"]) if result["ok"] \
+                else "mirror build failed: {}".format(result["error"])
+    return redirect(url_for("admin_home") + "?mirror=" + flash_tag + "&msg=" + flash_msg[:200])
+
+
+def _publish_mirror_quietly():
+    """Called after each admin write-path. Swallows failures — the write
+    that triggered it has already succeeded; the mirror catches up next time."""
+    try:
+        publish_mirror()
+    except Exception:
+        pass
 
 
 @app.route("/admin/toggle-pending-tehsil", methods=["POST"])
@@ -1426,6 +1453,8 @@ def upload():
                                 saved += " (committed to GitHub)"
                             except Exception as e:
                                 error = "Saved locally but GitHub push failed: {}".format(e)
+                        # Fresh data → refresh the public mirror
+                        _publish_mirror_quietly()
     # Collect existing snapshot dates for the UI
     existing = []
     for d, _ in discover_snapshots():
@@ -1496,6 +1525,8 @@ def edit_targets():
                 error = "Saved locally but GitHub push failed: {}".format(e)
         else:
             saved = True
+        if saved:
+            _publish_mirror_quietly()
     # Build row list for display: defaults + any override-only (added) villages
     overrides = load_targets_overrides()
     rows = []
@@ -1606,6 +1637,8 @@ def edit_camp_directors():
                 error = "Saved locally but GitHub push failed: {}".format(e)
         else:
             saved = True
+        if saved:
+            _publish_mirror_quietly()
         existing_overrides = load_cd_overrides()
         known_keys = set(CAMP_DIRECTORS_59.keys()) | set(existing_overrides.keys())
     # Build row list: baked-in first (sorted), then admin-added villages
@@ -1928,6 +1961,73 @@ def download_xlsx():
     return Response(bio.getvalue(),
                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f"attachment; filename=farmer_id_progress_{today}.xlsx"})
+
+
+# =========================================================================
+# Public Mirror — writes a static HTML snapshot of the dashboard to docs/
+# in the repo. GitHub Pages serves it from https://<user>.github.io/<repo>/
+# with no Render round-trip, so public viewing scales without limit.
+# =========================================================================
+
+def _mirror_pages_url():
+    """Return the expected GitHub Pages URL for this repo, or None if GH_REPO
+    isn't configured. Shape: https://<owner>.github.io/<repo>/.
+    """
+    repo = os.environ.get("GH_REPO", "")
+    if "/" not in repo:
+        return None
+    owner, name = repo.split("/", 1)
+    return "https://{}.github.io/{}/".format(owner, name)
+
+
+def build_mirror_html():
+    """Render dashboard.html with Pending column forced off, no Google Sheet
+    fetch, and admin nav hidden. Returns the HTML as a string."""
+    state = build_nested_structure(skip_pending=True)
+    # Force pending column off everywhere on the public mirror.
+    state["settings"] = dict(state.get("settings", {}))
+    state["settings"]["show_pending_entries"] = False
+    state["settings"]["show_pending_entries_tehsil"] = False
+    state["mirrorGeneratedAt"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+    with app.test_request_context("/"):
+        return render_template("dashboard.html",
+                               state=state,
+                               mirror_mode=True,
+                               is_admin=False)
+
+
+def publish_mirror():
+    """Build + write + commit the mirror. Returns {ok, url, error, bytes}.
+    Non-fatal: if commit fails, local file still written."""
+    try:
+        html = build_mirror_html()
+    except Exception as e:
+        return {"ok": False, "url": None, "error": "mirror render failed: {}".format(e), "bytes": 0}
+
+    os.makedirs(MIRROR_DIR, exist_ok=True)
+    with open(MIRROR_FILE, "w", encoding="utf-8") as f:
+        f.write(html)
+    # .nojekyll stops GitHub Pages from trying to run the file through Jekyll
+    # (which would strip leading underscores etc.). Idempotent write.
+    with open(NOJEKYLL_FILE, "w", encoding="utf-8") as f:
+        f.write("")
+
+    nbytes = len(html.encode("utf-8"))
+    commit_error = None
+    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+        try:
+            commit_to_github(MIRROR_FILE, "docs/index.html",
+                             "mirror: refresh dashboard snapshot ({} bytes)".format(nbytes))
+            # Nojekyll only needs to exist once; still cheap to re-push.
+            try:
+                commit_to_github(NOJEKYLL_FILE, "docs/.nojekyll", "mirror: ensure Pages serves raw files")
+            except Exception:
+                pass
+        except Exception as e:
+            commit_error = str(e)
+    return {"ok": commit_error is None, "url": _mirror_pages_url(),
+            "error": commit_error, "bytes": nbytes}
 
 
 def commit_to_github(local_path, repo_path, message):

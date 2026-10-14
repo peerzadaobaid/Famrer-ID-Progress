@@ -167,6 +167,7 @@
 
 <div class="header">
   <div class="header-inner">
+    {% if not mirror_mode %}
     <div class="nav">
       <a href="/analysis">📈 Analysis</a>
       {% if is_admin %}
@@ -178,6 +179,11 @@
         <a href="/login" class="primary">🔒 Admin login</a>
       {% endif %}
     </div>
+    {% else %}
+    <div class="nav">
+      <span style="background:rgba(255,255,255,0.12);color:#fff;padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:600;border:1px solid rgba(255,255,255,0.25)">📊 Public mirror · updated {{ state.mirrorGeneratedAt }}</span>
+    </div>
+    {% endif %}
     <h1>Bandipora District — Farmer Enrollment Dashboard</h1>
     <div class="sub">AGRISTACK enrollment progress · Baseline {{ state.baselineLabel }} · Latest snapshot: {{ (state.snapshotDates[-1] if state.snapshotDates else state.baselineDate) | short_date }}</div>
   </div>
@@ -214,7 +220,7 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="l5-empty">No daily snapshots uploaded yet — <a href="/upload">upload today's CSV</a> to begin tracking day-over-day additions.</div>
+        <div class="l5-empty">No daily snapshots uploaded yet{% if not mirror_mode %} — <a href="/upload">upload today's CSV</a> to begin tracking day-over-day additions{% endif %}.</div>
       {% endif %}
     </div>
   </div>
