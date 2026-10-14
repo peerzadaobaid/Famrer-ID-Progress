@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bandipora Farmer Enrollment Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f6f8fb; color: #1a3a5c; line-height: 1.45;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a3a5c 0%, #305496 100%);
+      color: #fff; padding: 24px 28px;
+    }
+    .header-inner { max-width: 1200px; margin: 0 auto; }
+    .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
+    .header .sub { font-size: 13px; opacity: 0.85; }
+    .header .nav { float: right; display: flex; gap: 6px; flex-wrap: wrap; }
+    .header .nav a { background: rgba(255,255,255,0.15); color: #fff;
+      padding: 6px 14px; border-radius: 6px; text-decoration: none;
+      font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.25); }
+    .header .nav a:hover { background: rgba(255,255,255,0.25); }
+    .header .nav a.primary { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.4); }
+    .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat-card {
+      background: #fff; border-radius: 10px; padding: 14px 18px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e5ebf3;
+    }
+    .stat-card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .stat-card .value { font-size: 26px; font-weight: 700; color: #1a3a5c; margin-top: 4px; }
+    .stat-card .sub-note { font-size: 11px; color: #668; margin-top: 2px; }
+
+    /* Last 5 days strip */
+    .last5-strip {
+      background: linear-gradient(135deg, #eff8f0 0%, #e4f1e6 100%);
+      border: 1px solid #a9d4b0;
+      border-radius: 10px; padding: 12px 16px;
+      margin-bottom: 18px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .last5-strip .l5-label {
+      font-weight: 700; color: #2a6b35; font-size: 14px;
+      display: flex; align-items: center; gap: 6px; min-width: 155px;
+    }
+    .last5-strip .l5-tiles {
+      display: flex; flex: 1; gap: 10px; flex-wrap: wrap;
+    }
+    .last5-strip .l5-tile {
+      background: #fff; border: 1px solid #c7e0cc;
+      border-radius: 8px; padding: 8px 14px;
+      min-width: 110px; text-align: center;
+    }
+    .last5-strip .l5-tile .l5-date { font-size: 11px; color: #668; font-weight: 600; }
+    .last5-strip .l5-tile .l5-add { font-size: 20px; font-weight: 700; color: #2a6b35; }
+    .last5-strip .l5-empty { color: #668; font-size: 12px; font-style: italic; }
+
+    /* Date range bar */
+    .date-range-bar {
+      background: linear-gradient(135deg, #fff8ee 0%, #fef1dc 100%);
+      border: 1px solid #e8c48a;
+      border-radius: 10px; padding: 12px 16px;
+      margin-bottom: 18px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px;
+    }
+    .date-range-bar .drb-label {
+      font-weight: 700; color: #a86416; font-size: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .date-range-bar .drb-inputs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .date-range-bar .drb-inputs label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5a4218; font-weight: 600; }
+    .date-range-bar .drb-inputs input[type="date"] { padding: 5px 8px; border: 1px solid #d8b377; border-radius: 6px; background: #fff; font-size: 13px; color: #1a3a5c; min-width: 140px; }
+    .date-range-bar .drb-reset {
+      padding: 5px 12px; border: 1px solid #c99a4e; background: #fff;
+      color: #a86416; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    .date-range-bar .drb-reset:hover { background: #fdf6e8; }
+    .date-range-bar .drb-hint { font-size: 11.5px; color: #7a5820; width: 100%; margin-top: 2px; line-height: 1.4; }
+
+    /* View tabs */
+    .view-tabs {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      margin-bottom: 22px; padding: 6px;
+      background: linear-gradient(135deg, #e8eef7 0%, #d9e4f2 100%);
+      border-radius: 12px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .view-tab {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 16px 20px; cursor: pointer; background: #fff;
+      color: #305496; font-weight: 600; font-size: 15px;
+      border: 2px solid transparent; border-radius: 8px;
+      transition: all 0.18s ease; text-align: center;
+    }
+    .view-tab:hover { background: #f4f8ff; border-color: #c7d6ea; }
+    .view-tab.active { background: linear-gradient(135deg, #1a3a5c 0%, #305496 100%); color: #fff; }
+    .tab-icon { font-size: 22px; }
+    .tab-sub { display: block; font-size: 11px; font-weight: 400; opacity: 0.75; margin-top: 2px; }
+
+    /* Panels + tables */
+    .panel { background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e5ebf3; margin-bottom: 20px; }
+    .panel-header { padding: 14px 20px; border-bottom: 1px solid #eef2f7; display: flex; justify-content: space-between; align-items: baseline; }
+    .panel-header h2 { font-size: 16px; color: #1a3a5c; font-weight: 600; }
+    .badge { background: #eef2f7; color: #305496; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+    th { background: #f6f8fb; color: #1a3a5c; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover { background: #f4f8ff; }
+    tfoot td { background: #f6f8fb; font-weight: 700; border-top: 2px solid #c7d6ea; }
+
+    /* Progress bars */
+    .progress { display: inline-block; width: 100px; height: 8px; background: #eef2f7; border-radius: 4px; overflow: hidden; vertical-align: middle; margin-right: 8px; }
+    .progress-fill { display: block; height: 100%; border-radius: 4px; }
+    .pct-value { font-weight: 600; }
+    .pct-fixed-blue .progress-fill   { background: #1e88e5; } .pct-fixed-blue   { color: #1e88e5; }
+    .pct-fixed-orange .progress-fill { background: #f57c00; }
+    .pct-fixed-green  .progress-fill { background: #43a047; }
+    .pct-zero .progress-fill   { background: #d9d9d9; } .pct-zero   .pct-value { color: #999; }
+    .pct-low .progress-fill    { background: #e57373; } .pct-low    .pct-value { color: #c62828; }
+    .pct-medium .progress-fill { background: #ffb74d; } .pct-medium .pct-value { color: #ef6c00; }
+    .pct-good .progress-fill   { background: #66bb6a; } .pct-good   .pct-value { color: #2e7d32; }
+
+    .first-bucket-row { background: #fff4e3; }
+    .first-bucket-badge { color: #c66300; font-weight: 400; font-size: 11px; margin-left: 6px; font-style: italic; }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .nav-back { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .back-btn {
+      background: #fff; border: 1px solid #c7d6ea; color: #305496;
+      padding: 8px 14px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .back-btn:hover { background: #f4f8ff; }
+    .back-context { color: #668; font-size: 12px; }
+
+    footer { max-width: 1200px; margin: 20px auto; padding: 12px 20px; color: #668; font-size: 12px; text-align: center; border-top: 1px solid #e5ebf3; padding-top: 20px; }
+    footer .credit { font-weight: 600; color: #305496; }
+    
+    /* Admin toggle: Pending Entries master toggle OFF — hide everywhere */
+    .pending-col { display: none !important; }
+    
+    .pending-first-bucket { font-style: italic; color: #8a5a00 !important; background: #fff8ee !important; font-weight: 600; font-size: 11px; }
+
+    @media (max-width: 760px) {
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .view-tabs { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    
+    <div class="nav">
+      <span style="background:rgba(255,255,255,0.12);color:#fff;padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:600;border:1px solid rgba(255,255,255,0.25)">📊 Public mirror · updated 2026-10-14 15:10 UTC</span>
+    </div>
+    
+    <h1>Bandipora District — Farmer Enrollment Dashboard</h1>
+    <div class="sub">AGRISTACK enrollment progress · Baseline through 30 Sept 2026 · Latest snapshot: 14 Oct &#39;26</div>
+  </div>
+</div>
+
+<div class="container">
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  <div class="summary-grid">
+    <div class="stat-card"><div class="label">Target</div><div class="value">76,268</div><div class="sub-note">100 villages · 7 tehsils</div></div>
+    <div class="stat-card"><div class="label">Issued</div><div class="value">21,183</div><div class="sub-note">28% of target</div></div>
+    <div class="stat-card"><div class="label">Approved</div><div class="value">6,929</div><div class="sub-note">33% of issued</div></div>
+    <div class="stat-card"><div class="label">Pending Approval</div><div class="value">14,254</div><div class="sub-note">Issued but not yet approved</div></div>
+  </div>
+
+  
+  <div class="last5-strip">
+    <div class="l5-label"><span>📈</span><span>Additions · last 5 days</span></div>
+    <div class="l5-tiles">
+      
+        
+          <div class="l5-tile">
+            <div class="l5-date">10 Oct &#39;26</div>
+            <div class="l5-add">+1,720</div>
+          </div>
+        
+          <div class="l5-tile">
+            <div class="l5-date">11 Oct &#39;26</div>
+            <div class="l5-add">+1,182</div>
+          </div>
+        
+          <div class="l5-tile">
+            <div class="l5-date">12 Oct &#39;26</div>
+            <div class="l5-add">+1,608</div>
+          </div>
+        
+          <div class="l5-tile">
+            <div class="l5-date">13 Oct &#39;26</div>
+            <div class="l5-add">+1,236</div>
+          </div>
+        
+          <div class="l5-tile">
+            <div class="l5-date">14 Oct &#39;26</div>
+            <div class="l5-add">+870</div>
+          </div>
+        
+      
+    </div>
+  </div>
+
+  
+  <div class="date-range-bar">
+    <div class="drb-label"><span>📅</span><span>Additions between</span></div>
+    <div class="drb-inputs">
+      <label>From <input type="date" id="addFrom"></label>
+      <label>To <input type="date" id="addTo"></label>
+      <button type="button" class="drb-reset" id="addResetBtn">Reset</button>
+    </div>
+    <div class="drb-hint">Drives the <b>Additions between</b> column in every table below. Baseline (through 30 Sept 2026) is counted on <b>30 Sep &#39;26</b>.</div>
+  </div>
+
+  
+  <div class="view-tabs" id="viewTabs">
+    <button class="view-tab" id="tabProgress" onclick="switchTab('progress')">
+      <span class="tab-icon">📊</span>
+      <span>Tehsil-wise Progress<span class="tab-sub">All villages · targets vs enrollment</span></span>
+    </button>
+    <button class="view-tab active" id="tabCD" onclick="switchTab('cd')">
+      <span class="tab-icon">👥</span>
+      <span>Camp Director Progress<span class="tab-sub">59 villages · by assigned director</span></span>
+    </button>
+  </div>
+
+  
+  <div id="viewTehsil" class="view">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Tehsil-wise Progress <small style="color:#888;font-weight:400;font-size:12px;margin-left:6px">Click a row to see villages</small></h2>
+        <span class="badge">7 tehsils</span>
+      </div>
+      <div class="table-wrap">
+        <table id="tehsilTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tehsil</th>
+              <th class="num" style="white-space:normal;max-width:70px">Total Villages</th>
+              <th class="num" style="white-space:normal;max-width:80px">Villages Bucketed</th>
+              <th class="num" style="white-space:normal;max-width:120px">Target</th>
+              <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
+              <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
+              <th class="num" id="tehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num pending-col pending-col-tehsil" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th>Issue %</th>
+              <th class="num">Approved</th>
+              <th>Approval %</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="viewVillage" class="view">
+    <div class="nav-back">
+      <button class="back-btn" onclick="showTehsils()"><span>←</span><span>Back to All Tehsils</span></button>
+      <div class="back-context">Villages in <b id="villageBreadcrumb"></b></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="villageViewTitle"></h2>
+        <span class="badge" id="villageCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="villageTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Village</th>
+              <th class="num">Target</th>
+              <th class="num">Total Issued</th>
+              <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
+              <th class="num" id="villageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num pending-col pending-col-tehsil" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th>Issue %</th>
+              <th class="num">Approved</th>
+              <th>Approval %</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="viewCDTehsil" class="view active">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Camp Director Progress — Tehsil-wise <small style="color:#888;font-weight:400;font-size:12px;margin-left:6px">59 non-first-bucket villages</small></h2>
+        <span class="badge" id="cdTehsilCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="cdTehsilTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tehsil</th>
+              <th class="num" style="white-space:normal;max-width:80px">Camp Directors</th>
+              <th class="num" style="white-space:normal;max-width:70px">Villages</th>
+              <th class="num" style="white-space:normal;max-width:95px">Target</th>
+              <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
+              <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
+              <th class="num" id="cdTehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th>Issue %</th>
+              <th class="num">Approved</th>
+              <th>Approval %</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="viewCDDirectors" class="view">
+    <div class="nav-back">
+      <button class="back-btn" onclick="showCDTehsils()"><span>←</span><span>Back to Tehsils</span></button>
+      <div class="back-context">Camp Directors in <b id="cdDirBreadcrumb"></b></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="cdDirTitle"></h2>
+        <span class="badge" id="cdDirCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="cdDirectorTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Camp Director</th>
+              <th class="num">Villages</th>
+              <th class="num">Target</th>
+              <th class="num">Total Issued</th>
+              <th class="num">Since 1 Oct</th>
+              <th class="num" id="cdDirectorAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th>Issue %</th>
+              <th class="num">Approved</th>
+              <th>Approval %</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="viewCDVillages" class="view">
+    <div class="nav-back">
+      <button class="back-btn" onclick="cdBackToDirectors()"><span>←</span><span>Back to Directors</span></button>
+      <div class="back-context"><b id="cdVilBreadcrumb"></b></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="cdVilTitle"></h2>
+        <span class="badge" id="cdVilCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="cdVillageTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Village</th>
+              <th class="num">Target</th>
+              <th class="num">Total Issued</th>
+              <th class="num">Since 1 Oct</th>
+              <th class="num" id="cdVillageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
+              <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
+              <th>Issue %</th>
+              <th class="num">Approved</th>
+              <th>Approval %</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Bandipora Farmer Enrollment Dashboard · Updated 2026-10-14<br>
+  Developed and maintained by <span class="credit">Obaid Peerzada</span>
+</footer>
+
+<script>
+const DATA = {"baselineDate": "2026-09-30", "baselineLabel": "through 30 Sept 2026", "errors": [], "generated": "2026-10-14T15:10:43.023344Z", "last5": [{"date": "2026-10-10", "total": 1720}, {"date": "2026-10-11", "total": 1182}, {"date": "2026-10-12", "total": 1608}, {"date": "2026-10-13", "total": 1236}, {"date": "2026-10-14", "total": 870}], "maxDate": "2026-10-14", "minDate": "2026-09-30", "mirrorGeneratedAt": "2026-10-14 15:10 UTC", "pendingMeta": {"columnsSeen": ["Tehsil", "Village", "Username", "Password Hash", "Active", "Total Buckets", "Same-person Groups", "Generated", "Not Generated", "Farmer IDs", "Reasons (JSON)", "Last Entry", "Page Last Opened", "Created At", "Claim Report", "Unclaimed Buckets", "Partly Claimed"], "error": null, "formula": "total - generated - not_generated", "ok": false, "rowsMatched": 58, "totalDistrict": 58836}, "settings": {"show_pending_entries": false, "show_pending_entries_tehsil": false}, "snapshotDates": ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14"], "tehsils": [{"approved": 1868, "approvedBaseline": 1280, "bucketed": 0, "issued": 6439, "issuedBaseline": 1890, "pending": 17862, "target": 23286, "tehsil": "BANDIPORA", "totalSurveyNos": 72131, "totalVillages": 43, "villages": [{"approved": 43, "approvedBaseline": 43, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 43, "issued": 88}}, "firstBucket": true, "issued": 88, "issuedBaseline": 88, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 196, "tehsil": "Bandipora", "village": "Shamthan"}, {"approved": 185, "approvedBaseline": 185, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 185, "issued": 216}}, "firstBucket": true, "issued": 216, "issuedBaseline": 216, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 482, "tehsil": "Bandipora", "village": "Chak Arsala Khan"}, {"approved": 18, "approvedBaseline": 0, "campDirector": {"n": "Mr Shabir Ahmad Ganie", "p": "7006114318", "t": "BANDIPORA", "v": "NASSU"}, "datedCounts": {"2026-10-02": {"approved": 0, "issued": 4}, "2026-10-03": {"approved": 0, "issued": 26}, "2026-10-05": {"approved": 0, "issued": 24}, "2026-10-06": {"approved": 3, "issued": 49}, "2026-10-07": {"approved": 1, "issued": 26}, "2026-10-08": {"approved": 1, "issued": 9}, "2026-10-10": {"approved": 0, "issued": 20}, "2026-10-11": {"approved": 9, "issued": 22}, "2026-10-12": {"approved": 3, "issued": 20}, "2026-10-13": {"approved": 1, "issued": 8}, "2026-10-14": {"approved": 0, "issued": 13}}, "firstBucket": false, "issued": 221, "issuedBaseline": 0, "pending": 514, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 514, "tehsil": "Bandipora", "village": "Nass"}, {"approved": 37, "approvedBaseline": 37, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 37, "issued": 58}}, "firstBucket": true, "issued": 58, "issuedBaseline": 58, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 136, "tehsil": "Bandipora", "village": "Labkachal"}, {"approved": 114, "approvedBaseline": 114, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 114, "issued": 148}}, "firstBucket": true, "issued": 148, "issuedBaseline": 148, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 355, "tehsil": "Bandipora", "village": "Takiya Ahmad Shah"}, {"approved": 53, "approvedBaseline": 0, "campDirector": {"n": "Mohd Abbas Mir (HDO)", "p": "7006051991", "t": "BANDIPORA", "v": "KHAYAR"}, "datedCounts": {"2026-10-02": {"approved": 1, "issued": 22}, "2026-10-03": {"approved": 3, "issued": 43}, "2026-10-05": {"approved": 0, "issued": 49}, "2026-10-06": {"approved": 2, "issued": 49}, "2026-10-07": {"approved": 4, "issued": 35}, "2026-10-08": {"approved": 13, "issued": 26}, "2026-10-10": {"approved": 0, "issued": 31}, "2026-10-11": {"approved": 0, "issued": 33}, "2026-10-12": {"approved": 30, "issued": 24}, "2026-10-13": {"approved": 0, "issued": 29}, "2026-10-14": {"approved": 0, "issued": 26}}, "firstBucket": false, "issued": 367, "issuedBaseline": 0, "pending": 899, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 899, "tehsil": "Bandipora", "village": "Khayar"}, {"approved": 187, "approvedBaseline": 187, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 187, "issued": 254}}, "firstBucket": true, "issued": 254, "issuedBaseline": 254, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 640, "tehsil": "Bandipora", "village": "Brar"}, {"approved": 11, "approvedBaseline": 11, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 11, "issued": 146}}, "firstBucket": true, "issued": 146, "issuedBaseline": 146, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 377, "tehsil": "Bandipora", "village": "Weven"}, {"approved": 14, "approvedBaseline": 0, "campDirector": {"n": "Mr Parvaiz Ahmad Reshi", "p": "7788932598", "t": "BANDIPORA", "v": "GUND DACHINA"}, "datedCounts": {"2026-10-02": {"approved": 0, "issued": 3}, "2026-10-03": {"approved": 0, "issued": 21}, "2026-10-05": {"approved": 0, "issued": 20}, "2026-10-06": {"approved": 1, "issued": 35}, "2026-10-07": {"approved": 2, "issued": 38}, "2026-10-08": {"approved": 4, "issued": 21}, "2026-10-10": {"approved": 0, "issued": 35}, "2026-10-11": {"approved": 0, "issued": 31}, "2026-10-12": {"approved": 5, "issued": 32}, "2026-10-13": {"approved": 2, "issued": 17}, "2026-10-14": {"approved": 0, "issued": 14}}, "firstBucket": false, "issued": 267, "issuedBaseline": 0, "pending": 699, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 699, "tehsil": "Bandipora", "village": "Gund Dachina"}, {"approved": 18, "approvedBaseline": 0, "campDirector": {"n": "Mr Zahoor Ahmad Bhat", "p": "", "t": "BANDIPORA", "v": "ATHWATOO"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 3}, "2026-10-05": {"approved": 0, "issued": 28}, "2026-10-06": {"approved": 0, "issued": 18}, "2026-10-07": {"approved": 0, "issued": 37}, "2026-10-08": {"approved": 0, "issued": 24}, "2026-10-10": {"approved": 0, "issued": 30}, "2026-10-11": {"approved": 0, "issued": 16}, "2026-10-12": {"approved": 18, "issued": 33}, "2026-10-13": {"approved": 0, "issued": 29}, "2026-10-14": {"approved": 0, "issued": 24}}, "firstBucket": false, "issued": 242, "issuedBaseline": 0, "pending": 645, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 645, "tehsil": "Bandipora", "village": "Athwatoo"}, {"approved": 51, "approvedBaseline": 51, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 51, "issued": 67}}, "firstBucket": true, "issued": 67, "issuedBaseline": 67, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 186, "tehsil": "Bandipora", "village": "Chandaji"}, {"approved": 60, "approvedBaseline": 0, "campDirector": {"n": "Hafiz Qazafi Khan(AEA)", "p": "9596184321", "t": "BANDIPORA", "v": "KUDARA."}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 43}, "2026-10-06": {"approved": 3, "issued": 58}, "2026-10-07": {"approved": 19, "issued": 63}, "2026-10-08": {"approved": 4, "issued": 41}, "2026-10-10": {"approved": 0, "issued": 55}, "2026-10-11": {"approved": 0, "issued": 25}, "2026-10-12": {"approved": 33, "issued": 28}, "2026-10-13": {"approved": 1, "issued": 19}, "2026-10-14": {"approved": 0, "issued": 22}}, "firstBucket": false, "issued": 354, "issuedBaseline": 0, "pending": 986, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 986, "tehsil": "Bandipora", "village": "Kudara"}, {"approved": 154, "approvedBaseline": 154, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 154, "issued": 183}}, "firstBucket": true, "issued": 183, "issuedBaseline": 183, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 531, "tehsil": "Bandipora", "village": "Kharpora"}, {"approved": 82, "approvedBaseline": 82, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 82, "issued": 98}}, "firstBucket": true, "issued": 98, "issuedBaseline": 98, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 295, "tehsil": "Bandipora", "village": "Dachigam"}, {"approved": 34, "approvedBaseline": 0, "campDirector": {"n": "Mr Rafiq Ahmad Bhat", "p": "7780861724", "t": "BANDIPORA", "v": "BHUTTO"}, "datedCounts": {"2026-10-07": {"approved": 11, "issued": 13}, "2026-10-08": {"approved": 0, "issued": 25}, "2026-10-10": {"approved": 0, "issued": 34}, "2026-10-11": {"approved": 0, "issued": 20}, "2026-10-12": {"approved": 23, "issued": 23}, "2026-10-13": {"approved": 0, "issued": 3}}, "firstBucket": false, "issued": 118, "issuedBaseline": 0, "pending": 362, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 362, "tehsil": "Bandipora", "village": "Bhutto"}, {"approved": 19, "approvedBaseline": 0, "campDirector": {"n": "Javid Ahmad Dar (SMS SDL)", "p": "9697876747", "t": "BANDIPORA", "v": "Nadihal"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 33}, "2026-10-05": {"approved": 0, "issued": 43}, "2026-10-06": {"approved": 3, "issued": 58}, "2026-10-07": {"approved": 8, "issued": 49}, "2026-10-08": {"approved": 4, "issued": 14}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 34}, "2026-10-11": {"approved": 0, "issued": 62}, "2026-10-12": {"approved": 0, "issued": 45}, "2026-10-13": {"approved": 4, "issued": 27}, "2026-10-14": {"approved": 0, "issued": 18}}, "firstBucket": false, "issued": 384, "issuedBaseline": 0, "pending": 1230, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1230, "tehsil": "Bandipora", "village": "Nadihal"}, {"approved": 6, "approvedBaseline": 6, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 6, "issued": 59}}, "firstBucket": true, "issued": 59, "issuedBaseline": 59, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 195, "tehsil": "Bandipora", "village": "Chak Reshipora"}, {"approved": 116, "approvedBaseline": 116, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 116, "issued": 153}}, "firstBucket": true, "issued": 153, "issuedBaseline": 153, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 515, "tehsil": "Bandipora", "village": "Papachan"}, {"approved": 107, "approvedBaseline": 107, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 107, "issued": 138}}, "firstBucket": true, "issued": 138, "issuedBaseline": 138, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 465, "tehsil": "Bandipora", "village": "Gundi Qasier"}, {"approved": 10, "approvedBaseline": 0, "campDirector": {"n": "Gulzar Ahmad Khan", "p": "7889808614", "t": "BANDIPORA", "v": "GAMROO"}, "datedCounts": {"2026-10-03": {"approved": 2, "issued": 43}, "2026-10-04": {"approved": 0, "issued": 1}, "2026-10-05": {"approved": 0, "issued": 42}, "2026-10-06": {"approved": 1, "issued": 53}, "2026-10-07": {"approved": 5, "issued": 0}, "2026-10-08": {"approved": 0, "issued": 1}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 1}, "2026-10-11": {"approved": 0, "issued": 1}, "2026-10-12": {"approved": 2, "issued": 2}, "2026-10-13": {"approved": 0, "issued": 31}, "2026-10-14": {"approved": 0, "issued": 9}}, "firstBucket": false, "issued": 185, "issuedBaseline": 0, "pending": 660, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 660, "tehsil": "Bandipora", "village": "Gamroo"}, {"approved": 47, "approvedBaseline": 0, "campDirector": {"n": "Javid Ahmad Dar (SMS SDL)", "p": "9697876747", "t": "BANDIPORA", "v": "GAROORA"}, "datedCounts": {"2026-10-02": {"approved": 5, "issued": 11}, "2026-10-03": {"approved": 0, "issued": 56}, "2026-10-04": {"approved": 0, "issued": 2}, "2026-10-05": {"approved": 0, "issued": 33}, "2026-10-06": {"approved": 4, "issued": 46}, "2026-10-07": {"approved": 11, "issued": 42}, "2026-10-08": {"approved": 1, "issued": 24}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 47}, "2026-10-11": {"approved": 0, "issued": 29}, "2026-10-12": {"approved": 24, "issued": 45}, "2026-10-13": {"approved": 2, "issued": 17}, "2026-10-14": {"approved": 0, "issued": 20}}, "firstBucket": false, "issued": 373, "issuedBaseline": 0, "pending": 1388, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1388, "tehsil": "Bandipora", "village": "Garoora"}, {"approved": 187, "approvedBaseline": 187, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 187, "issued": 282}}, "firstBucket": true, "issued": 282, "issuedBaseline": 282, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 1051, "tehsil": "Bandipora", "village": "Chuntimulla"}, {"approved": 35, "approvedBaseline": 0, "campDirector": {"n": "Dr Aijaz Ahmad", "p": "9149986467", "t": "BANDIPORA", "v": "PANJIGAM"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 26}, "2026-10-05": {"approved": 5, "issued": 37}, "2026-10-06": {"approved": 3, "issued": 60}, "2026-10-07": {"approved": 16, "issued": 40}, "2026-10-08": {"approved": 2, "issued": 15}, "2026-10-09": {"approved": 0, "issued": 3}, "2026-10-10": {"approved": 0, "issued": 32}, "2026-10-11": {"approved": 0, "issued": 8}, "2026-10-12": {"approved": 8, "issued": 20}, "2026-10-13": {"approved": 1, "issued": 9}, "2026-10-14": {"approved": 0, "issued": 9}}, "firstBucket": false, "issued": 259, "issuedBaseline": 0, "pending": 992, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 992, "tehsil": "Bandipora", "village": "Panjigam"}, {"approved": 54, "approvedBaseline": 0, "campDirector": {"n": "Javid Ahmad Dar (SMS SDL)", "p": "7006515845", "t": "BANDIPORA", "v": "WATAPORA"}, "datedCounts": {"2026-10-03": {"approved": 1, "issued": 26}, "2026-10-04": {"approved": 0, "issued": 1}, "2026-10-05": {"approved": 0, "issued": 37}, "2026-10-06": {"approved": 1, "issued": 40}, "2026-10-07": {"approved": 8, "issued": 43}, "2026-10-08": {"approved": 2, "issued": 12}, "2026-10-09": {"approved": 1, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 39}, "2026-10-11": {"approved": 20, "issued": 20}, "2026-10-12": {"approved": 12, "issued": 37}, "2026-10-13": {"approved": 1, "issued": 37}, "2026-10-14": {"approved": 8, "issued": 21}}, "firstBucket": false, "issued": 314, "issuedBaseline": 0, "pending": 1209, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1209, "tehsil": "Bandipora", "village": "Watapora"}, {"approved": 79, "approvedBaseline": 0, "campDirector": {"n": "Javid Ahmad Dar (SMS SDL)", "p": "9697876747", "t": "BANDIPORA", "v": "Onagam"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 1}, "2026-10-05": {"approved": 0, "issued": 44}, "2026-10-06": {"approved": 2, "issued": 44}, "2026-10-07": {"approved": 9, "issued": 52}, "2026-10-08": {"approved": 11, "issued": 45}, "2026-10-09": {"approved": 0, "issued": 4}, "2026-10-10": {"approved": 0, "issued": 61}, "2026-10-11": {"approved": 0, "issued": 36}, "2026-10-12": {"approved": 55, "issued": 65}, "2026-10-13": {"approved": 2, "issued": 36}, "2026-10-14": {"approved": 0, "issued": 25}}, "firstBucket": false, "issued": 413, "issuedBaseline": 0, "pending": 1857, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1857, "tehsil": "Bandipora", "village": "Onagam"}, {"approved": 25, "approvedBaseline": 0, "campDirector": {"n": "Mr Syed Shahnawaz Haji", "p": "7889374549", "t": "BANDIPORA", "v": "AYATMULLA"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 12}, "2026-10-05": {"approved": 0, "issued": 15}, "2026-10-06": {"approved": 0, "issued": 26}, "2026-10-07": {"approved": 8, "issued": 17}, "2026-10-08": {"approved": 1, "issued": 9}, "2026-10-10": {"approved": 0, "issued": 14}, "2026-10-11": {"approved": 0, "issued": 8}, "2026-10-12": {"approved": 11, "issued": 25}, "2026-10-13": {"approved": 1, "issued": 15}, "2026-10-14": {"approved": 4, "issued": 14}}, "firstBucket": false, "issued": 155, "issuedBaseline": 0, "pending": 821, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 821, "tehsil": "Bandipora", "village": "Ayatmulla"}, {"approved": 36, "approvedBaseline": 0, "campDirector": {"n": "Aasif Jameel", "p": "7006414605", "t": "BANDIPORA", "v": "LOWDARA"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 1}, "2026-10-06": {"approved": 0, "issued": 1}, "2026-10-11": {"approved": 0, "issued": 31}, "2026-10-12": {"approved": 36, "issued": 50}, "2026-10-13": {"approved": 0, "issued": 1}, "2026-10-14": {"approved": 0, "issued": 16}}, "firstBucket": false, "issued": 100, "issuedBaseline": 0, "pending": 540, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 540, "tehsil": "Bandipora", "village": "Lowdara"}, {"approved": 26, "approvedBaseline": 0, "campDirector": {"n": "Hafiz Qazafi Khan(AEA)", "p": "9596184321", "t": "BANDIPORA", "v": "Gundpora Rampora"}, "datedCounts": {"2026-10-06": {"approved": 0, "issued": 4}, "2026-10-07": {"approved": 5, "issued": 50}, "2026-10-08": {"approved": 4, "issued": 21}, "2026-10-09": {"approved": 0, "issued": 6}, "2026-10-10": {"approved": 0, "issued": 69}, "2026-10-11": {"approved": 0, "issued": 3}, "2026-10-12": {"approved": 11, "issued": 0}, "2026-10-13": {"approved": 6, "issued": 15}, "2026-10-14": {"approved": 0, "issued": 26}}, "firstBucket": false, "issued": 194, "issuedBaseline": 0, "pending": 1082, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1082, "tehsil": "Bandipora", "village": "Gundipora Rampora"}, {"approved": 2, "approvedBaseline": 0, "campDirector": {"n": "Hafiz Qazafi Khan(AEA)", "p": "9596184321", "t": "BANDIPORA", "v": "Aragam"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 20}, "2026-10-06": {"approved": 1, "issued": 28}, "2026-10-07": {"approved": 0, "issued": 26}, "2026-10-08": {"approved": 1, "issued": 14}, "2026-10-10": {"approved": 0, "issued": 28}, "2026-10-11": {"approved": 0, "issued": 31}, "2026-10-12": {"approved": 0, "issued": 41}, "2026-10-13": {"approved": 0, "issued": 22}, "2026-10-14": {"approved": 0, "issued": 25}}, "firstBucket": false, "issued": 235, "issuedBaseline": 0, "pending": 1358, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1358, "tehsil": "Bandipora", "village": "Aragam"}, {"approved": 38, "approvedBaseline": 0, "campDirector": {"n": "Mohd Ashraf Shah", "p": "7006051991", "t": "BANDIPORA", "v": "LAWAYPORA"}, "datedCounts": {"2026-10-06": {"approved": 0, "issued": 3}, "2026-10-07": {"approved": 9, "issued": 34}, "2026-10-08": {"approved": 4, "issued": 25}, "2026-10-10": {"approved": 0, "issued": 37}, "2026-10-12": {"approved": 24, "issued": 43}, "2026-10-13": {"approved": 1, "issued": 29}, "2026-10-14": {"approved": 0, "issued": 13}}, "firstBucket": false, "issued": 184, "issuedBaseline": 0, "pending": 1118, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1118, "tehsil": "Bandipora", "village": "Lawaypora"}, {"approved": 19, "approvedBaseline": 0, "campDirector": {"n": "Mr Abdul Rashid Lone", "p": "7006051991", "t": "BANDIPORA", "v": "Sonerwani"}, "datedCounts": {"2026-10-06": {"approved": 0, "issued": 1}, "2026-10-07": {"approved": 0, "issued": 18}, "2026-10-08": {"approved": 6, "issued": 25}, "2026-10-09": {"approved": 0, "issued": 9}, "2026-10-10": {"approved": 0, "issued": 10}, "2026-10-11": {"approved": 0, "issued": 2}, "2026-10-12": {"approved": 13, "issued": 36}, "2026-10-13": {"approved": 0, "issued": 22}, "2026-10-14": {"approved": 0, "issued": 9}}, "firstBucket": false, "issued": 132, "issuedBaseline": 0, "pending": 1058, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1058, "tehsil": "Bandipora", "village": "Soner Wani"}, {"approved": 1, "approvedBaseline": 0, "campDirector": {"n": "Mr Syed Shahnawaz Haji", "p": "7889374549", "t": "BANDIPORA", "v": "AHEMSHREIF"}, "datedCounts": {"2026-10-12": {"approved": 1, "issued": 5}, "2026-10-13": {"approved": 0, "issued": 19}, "2026-10-14": {"approved": 0, "issued": 28}}, "firstBucket": false, "issued": 52, "issuedBaseline": 0, "pending": 444, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 444, "tehsil": "Bandipora", "village": "Ahemshreif"}], "villagesBucketed": 32}, {"approved": 2036, "approvedBaseline": 1596, "bucketed": 0, "issued": 6186, "issuedBaseline": 2275, "pending": 17221, "target": 22499, "tehsil": "SUMBAL", "totalSurveyNos": 33624, "totalVillages": 21, "villages": [{"approved": 237, "approvedBaseline": 237, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 237, "issued": 396}}, "firstBucket": true, "issued": 396, "issuedBaseline": 396, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 587, "tehsil": "Sonawari", "village": "Gund i Nowgam"}, {"approved": 254, "approvedBaseline": 254, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 254, "issued": 385}}, "firstBucket": true, "issued": 385, "issuedBaseline": 385, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 781, "tehsil": "Sonawari", "village": "Shadi Pora"}, {"approved": 155, "approvedBaseline": 155, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 155, "issued": 198}}, "firstBucket": true, "issued": 198, "issuedBaseline": 198, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 404, "tehsil": "Sonawari", "village": "Najin"}, {"approved": 115, "approvedBaseline": 115, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 115, "issued": 152}}, "firstBucket": true, "issued": 152, "issuedBaseline": 152, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 347, "tehsil": "Sonawari", "village": "Malik Pora"}, {"approved": 197, "approvedBaseline": 197, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 197, "issued": 255}}, "firstBucket": true, "issued": 255, "issuedBaseline": 255, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 602, "tehsil": "Sonawari", "village": "Zal Pora"}, {"approved": 186, "approvedBaseline": 186, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 186, "issued": 264}}, "firstBucket": true, "issued": 264, "issuedBaseline": 264, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 674, "tehsil": "Sonawari", "village": "Gaad Khud"}, {"approved": 119, "approvedBaseline": 0, "campDirector": {"n": "Mr Irshad Ahmad Parray", "p": "", "t": "SUMBAL", "v": "Asham"}, "datedCounts": {"2026-10-01": {"approved": 2, "issued": 55}, "2026-10-02": {"approved": 16, "issued": 49}, "2026-10-03": {"approved": 3, "issued": 54}, "2026-10-04": {"approved": 0, "issued": 3}, "2026-10-05": {"approved": 0, "issued": 47}, "2026-10-06": {"approved": 68, "issued": 60}, "2026-10-07": {"approved": 2, "issued": 35}, "2026-10-08": {"approved": 16, "issued": 22}, "2026-10-09": {"approved": 0, "issued": 6}, "2026-10-10": {"approved": 0, "issued": 37}, "2026-10-11": {"approved": 0, "issued": 23}, "2026-10-12": {"approved": 6, "issued": 41}, "2026-10-13": {"approved": 6, "issued": 36}, "2026-10-14": {"approved": 0, "issued": 9}}, "firstBucket": false, "issued": 477, "issuedBaseline": 0, "pending": 1296, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1296, "tehsil": "Sonawari", "village": "Asham"}, {"approved": 16, "approvedBaseline": 0, "campDirector": {"n": "Sajad Ahmad Zargar(JAEO)", "p": "9858332300", "t": "SUMBAL", "v": "SUMBAL INDERKOTE"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 3}, "2026-10-03": {"approved": 1, "issued": 33}, "2026-10-05": {"approved": 0, "issued": 32}, "2026-10-06": {"approved": 1, "issued": 45}, "2026-10-07": {"approved": 4, "issued": 35}, "2026-10-08": {"approved": 5, "issued": 21}, "2026-10-10": {"approved": 0, "issued": 28}, "2026-10-11": {"approved": 0, "issued": 12}, "2026-10-12": {"approved": 0, "issued": 44}, "2026-10-13": {"approved": 5, "issued": 32}, "2026-10-14": {"approved": 0, "issued": 22}}, "firstBucket": false, "issued": 307, "issuedBaseline": 0, "pending": 849, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 849, "tehsil": "Sonawari", "village": "Sumbal Inderkote"}, {"approved": 270, "approvedBaseline": 270, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 270, "issued": 394}}, "firstBucket": true, "issued": 394, "issuedBaseline": 394, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 1116, "tehsil": "Sonawari", "village": "Chewa"}, {"approved": 5, "approvedBaseline": 0, "campDirector": {"n": "Tariq Ahmad Sheikh", "p": "7780935280", "t": "SUMBAL", "v": "ODINA"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 26}, "2026-10-02": {"approved": 0, "issued": 10}, "2026-10-03": {"approved": 1, "issued": 30}, "2026-10-04": {"approved": 0, "issued": 5}, "2026-10-05": {"approved": 0, "issued": 24}, "2026-10-06": {"approved": 0, "issued": 36}, "2026-10-07": {"approved": 3, "issued": 41}, "2026-10-08": {"approved": 0, "issued": 25}, "2026-10-09": {"approved": 0, "issued": 13}, "2026-10-10": {"approved": 0, "issued": 47}, "2026-10-11": {"approved": 0, "issued": 15}, "2026-10-12": {"approved": 0, "issued": 32}, "2026-10-13": {"approved": 1, "issued": 31}, "2026-10-14": {"approved": 0, "issued": 17}}, "firstBucket": false, "issued": 352, "issuedBaseline": 0, "pending": 1006, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1006, "tehsil": "Sonawari", "village": "Odina"}, {"approved": 18, "approvedBaseline": 0, "campDirector": {"n": "Mr Irshad Ahmad Parray", "p": "", "t": "SUMBAL", "v": "HILALABAD"}, "datedCounts": {"2026-10-01": {"approved": 2, "issued": 51}, "2026-10-03": {"approved": 4, "issued": 41}, "2026-10-05": {"approved": 0, "issued": 42}, "2026-10-06": {"approved": 2, "issued": 49}, "2026-10-07": {"approved": 2, "issued": 47}, "2026-10-08": {"approved": 7, "issued": 35}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 34}, "2026-10-11": {"approved": 0, "issued": 38}, "2026-10-12": {"approved": 0, "issued": 35}, "2026-10-13": {"approved": 1, "issued": 12}, "2026-10-14": {"approved": 0, "issued": 17}}, "firstBucket": false, "issued": 402, "issuedBaseline": 0, "pending": 1164, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1164, "tehsil": "Sonawari", "village": "Hilalabad"}, {"approved": 64, "approvedBaseline": 0, "campDirector": {"n": "Sajad Ahmad Zargar(JAEO)", "p": "9858332300", "t": "SUMBAL", "v": "WAHIDPORA"}, "datedCounts": {"2026-10-03": {"approved": 2, "issued": 33}, "2026-10-05": {"approved": 1, "issued": 23}, "2026-10-06": {"approved": 1, "issued": 33}, "2026-10-07": {"approved": 18, "issued": 55}, "2026-10-08": {"approved": 4, "issued": 16}, "2026-10-10": {"approved": 0, "issued": 30}, "2026-10-11": {"approved": 0, "issued": 30}, "2026-10-12": {"approved": 0, "issued": 18}, "2026-10-13": {"approved": 38, "issued": 9}, "2026-10-14": {"approved": 0, "issued": 21}}, "firstBucket": false, "issued": 268, "issuedBaseline": 0, "pending": 884, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 884, "tehsil": "Sonawari", "village": "Wahid pora"}, {"approved": 182, "approvedBaseline": 182, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 182, "issued": 231}}, "firstBucket": true, "issued": 231, "issuedBaseline": 231, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 767, "tehsil": "Sonawari", "village": "Shilvat"}, {"approved": 40, "approvedBaseline": 0, "campDirector": {"n": "Mr Shabir Ahmad Dhobi", "p": "9906580671", "t": "SUMBAL", "v": "GUNDIKHALIL"}, "datedCounts": {"2026-10-01": {"approved": 3, "issued": 21}, "2026-10-03": {"approved": 0, "issued": 15}, "2026-10-05": {"approved": 0, "issued": 15}, "2026-10-06": {"approved": 0, "issued": 27}, "2026-10-07": {"approved": 1, "issued": 32}, "2026-10-08": {"approved": 6, "issued": 15}, "2026-10-10": {"approved": 0, "issued": 41}, "2026-10-11": {"approved": 0, "issued": 55}, "2026-10-12": {"approved": 0, "issued": 56}, "2026-10-13": {"approved": 1, "issued": 37}, "2026-10-14": {"approved": 29, "issued": 8}}, "firstBucket": false, "issued": 322, "issuedBaseline": 0, "pending": 1308, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1308, "tehsil": "Sonawari", "village": "Gund i Khalil"}, {"approved": 125, "approvedBaseline": 0, "campDirector": {"n": "Sajad Ahmad Wani(JAEO)", "p": "", "t": "SUMBAL", "v": "Ganastan"}, "datedCounts": {"2026-10-03": {"approved": 1, "issued": 7}, "2026-10-05": {"approved": 0, "issued": 29}, "2026-10-06": {"approved": 13, "issued": 57}, "2026-10-07": {"approved": 4, "issued": 41}, "2026-10-08": {"approved": 3, "issued": 22}, "2026-10-10": {"approved": 0, "issued": 43}, "2026-10-11": {"approved": 0, "issued": 9}, "2026-10-12": {"approved": 0, "issued": 51}, "2026-10-13": {"approved": 10, "issued": 30}, "2026-10-14": {"approved": 94, "issued": 23}}, "firstBucket": false, "issued": 312, "issuedBaseline": 0, "pending": 1560, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1560, "tehsil": "Sonawari", "village": "Ganastan"}, {"approved": 3, "approvedBaseline": 0, "campDirector": {"n": "Azad Ahmad Shah(JAEO)", "p": "", "t": "SUMBAL", "v": "NOWGAM"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 3}, "2026-10-03": {"approved": 0, "issued": 5}, "2026-10-05": {"approved": 0, "issued": 17}, "2026-10-06": {"approved": 2, "issued": 14}, "2026-10-07": {"approved": 0, "issued": 22}, "2026-10-08": {"approved": 1, "issued": 11}, "2026-10-10": {"approved": 0, "issued": 5}, "2026-10-12": {"approved": 0, "issued": 37}, "2026-10-13": {"approved": 0, "issued": 24}, "2026-10-14": {"approved": 0, "issued": 40}}, "firstBucket": false, "issued": 178, "issuedBaseline": 0, "pending": 941, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 941, "tehsil": "Sonawari", "village": "NOWGAM"}, {"approved": 9, "approvedBaseline": 0, "campDirector": {"n": "Mr Farooq Ahmad Bhat", "p": "9149687674", "t": "SUMBAL", "v": "SARIE DANGERPORA"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 34}, "2026-10-03": {"approved": 0, "issued": 38}, "2026-10-05": {"approved": 0, "issued": 33}, "2026-10-06": {"approved": 2, "issued": 41}, "2026-10-07": {"approved": 3, "issued": 51}, "2026-10-08": {"approved": 3, "issued": 26}, "2026-10-10": {"approved": 0, "issued": 33}, "2026-10-11": {"approved": 0, "issued": 30}, "2026-10-12": {"approved": 0, "issued": 37}, "2026-10-13": {"approved": 1, "issued": 24}, "2026-10-14": {"approved": 0, "issued": 24}}, "firstBucket": false, "issued": 371, "issuedBaseline": 0, "pending": 2149, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 2149, "tehsil": "Sonawari", "village": "Sarai Dangarpora"}, {"approved": 11, "approvedBaseline": 0, "campDirector": {"n": "Azad Ahmad Shah(JAEO)", "p": "", "t": "SUMBAL", "v": "Rakhi Sultanpora"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 4}, "2026-10-03": {"approved": 2, "issued": 25}, "2026-10-05": {"approved": 0, "issued": 24}, "2026-10-06": {"approved": 1, "issued": 34}, "2026-10-07": {"approved": 3, "issued": 26}, "2026-10-08": {"approved": 5, "issued": 9}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 70}, "2026-10-11": {"approved": 0, "issued": 41}, "2026-10-12": {"approved": 0, "issued": 50}, "2026-10-13": {"approved": 0, "issued": 26}, "2026-10-14": {"approved": 0, "issued": 5}}, "firstBucket": false, "issued": 315, "issuedBaseline": 0, "pending": 1973, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1973, "tehsil": "Sonawari", "village": "Rakh Sultan Pora"}, {"approved": 24, "approvedBaseline": 0, "campDirector": {"n": "Mr Shabir Ahmad Dhobi", "p": "9797756269", "t": "SUMBAL", "v": "Trigam"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 12}, "2026-10-03": {"approved": 0, "issued": 14}, "2026-10-05": {"approved": 0, "issued": 16}, "2026-10-06": {"approved": 1, "issued": 26}, "2026-10-07": {"approved": 0, "issued": 17}, "2026-10-08": {"approved": 10, "issued": 19}, "2026-10-10": {"approved": 0, "issued": 28}, "2026-10-11": {"approved": 0, "issued": 10}, "2026-10-12": {"approved": 0, "issued": 28}, "2026-10-13": {"approved": 13, "issued": 22}, "2026-10-14": {"approved": 0, "issued": 17}}, "firstBucket": false, "issued": 209, "issuedBaseline": 0, "pending": 1399, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1399, "tehsil": "Sonawari", "village": "Trigam"}, {"approved": 6, "approvedBaseline": 0, "campDirector": {"n": "Sajad Ahmad Wani(JAEO)", "p": "7006912553", "t": "SUMBAL", "v": "RAKHI SHILVAT"}, "datedCounts": {"2026-10-01": {"approved": 1, "issued": 10}, "2026-10-03": {"approved": 2, "issued": 27}, "2026-10-05": {"approved": 0, "issued": 29}, "2026-10-06": {"approved": 1, "issued": 38}, "2026-10-07": {"approved": 1, "issued": 55}, "2026-10-08": {"approved": 1, "issued": 33}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 35}, "2026-10-11": {"approved": 0, "issued": 41}, "2026-10-12": {"approved": 0, "issued": 42}, "2026-10-13": {"approved": 0, "issued": 47}, "2026-10-14": {"approved": 0, "issued": 40}}, "firstBucket": false, "issued": 398, "issuedBaseline": 0, "pending": 2692, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 2692, "tehsil": "Sonawari", "village": "Rakh Shilvat"}], "villagesBucketed": 20}, {"approved": 490, "approvedBaseline": 460, "bucketed": 0, "issued": 2698, "issuedBaseline": 580, "pending": 10024, "target": 11847, "tehsil": "HAJIN", "totalSurveyNos": 39356, "totalVillages": 24, "villages": [{"approved": 0, "approvedBaseline": 0, "campDirector": null, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 1}}, "firstBucket": false, "issued": 1, "issuedBaseline": 0, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 0, "tehsil": "Hajin", "village": "Kosumbagh"}, {"approved": 6, "approvedBaseline": 6, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 6, "issued": 7}}, "firstBucket": true, "issued": 7, "issuedBaseline": 7, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 11, "tehsil": "Hajin", "village": "Gund-i-Ramzan"}, {"approved": 92, "approvedBaseline": 92, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 92, "issued": 105}}, "firstBucket": true, "issued": 105, "issuedBaseline": 105, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 220, "tehsil": "Hajin", "village": "Tangpora"}, {"approved": 118, "approvedBaseline": 118, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 118, "issued": 148}}, "firstBucket": true, "issued": 148, "issuedBaseline": 148, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 322, "tehsil": "Hajin", "village": "Gund-i-Balkh"}, {"approved": 5, "approvedBaseline": 0, "campDirector": {"n": "Dr Syed Imran", "p": "7006409066", "t": "HAJIN", "v": "KANIPORA"}, "datedCounts": {"2026-10-02": {"approved": 0, "issued": 2}, "2026-10-03": {"approved": 3, "issued": 58}, "2026-10-05": {"approved": 0, "issued": 21}, "2026-10-06": {"approved": 0, "issued": 20}, "2026-10-07": {"approved": 1, "issued": 15}, "2026-10-08": {"approved": 1, "issued": 15}, "2026-10-10": {"approved": 0, "issued": 9}, "2026-10-11": {"approved": 0, "issued": 5}, "2026-10-12": {"approved": 0, "issued": 31}, "2026-10-13": {"approved": 0, "issued": 13}, "2026-10-14": {"approved": 0, "issued": 4}}, "firstBucket": false, "issued": 193, "issuedBaseline": 0, "pending": 427, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 427, "tehsil": "Hajin", "village": "Kani Pora"}, {"approved": 93, "approvedBaseline": 93, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 93, "issued": 125}}, "firstBucket": true, "issued": 125, "issuedBaseline": 125, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 465, "tehsil": "Hajin", "village": "Zoonipora"}, {"approved": 1, "approvedBaseline": 0, "campDirector": {"n": "Ghulam Rasool Hajam", "p": "9797826874", "t": "HAJIN", "v": "Gund Jahengeer"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 2}, "2026-10-06": {"approved": 0, "issued": 45}, "2026-10-07": {"approved": 1, "issued": 21}, "2026-10-08": {"approved": 0, "issued": 23}, "2026-10-09": {"approved": 0, "issued": 4}, "2026-10-10": {"approved": 0, "issued": 45}, "2026-10-11": {"approved": 0, "issued": 24}, "2026-10-12": {"approved": 0, "issued": 24}, "2026-10-13": {"approved": 0, "issued": 35}, "2026-10-14": {"approved": 0, "issued": 36}}, "firstBucket": false, "issued": 259, "issuedBaseline": 0, "pending": 1017, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1017, "tehsil": "Hajin", "village": "Gundi Jahangir"}, {"approved": 7, "approvedBaseline": 0, "campDirector": {"n": "Mr Aejaz Ahmad Wani", "p": "7889818735", "t": "HAJIN", "v": "Gund saderkoot"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 24}, "2026-10-02": {"approved": 0, "issued": 4}, "2026-10-03": {"approved": 0, "issued": 31}, "2026-10-05": {"approved": 0, "issued": 48}, "2026-10-06": {"approved": 0, "issued": 43}, "2026-10-07": {"approved": 1, "issued": 84}, "2026-10-08": {"approved": 6, "issued": 43}, "2026-10-10": {"approved": 0, "issued": 43}, "2026-10-11": {"approved": 0, "issued": 38}, "2026-10-12": {"approved": 0, "issued": 81}, "2026-10-13": {"approved": 0, "issued": 53}, "2026-10-14": {"approved": 0, "issued": 43}}, "firstBucket": false, "issued": 535, "issuedBaseline": 0, "pending": 2139, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 2139, "tehsil": "Hajin", "village": "Gundi Saderkote"}, {"approved": 150, "approvedBaseline": 150, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 150, "issued": 194}}, "firstBucket": true, "issued": 194, "issuedBaseline": 194, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 777, "tehsil": "Hajin", "village": "Madwan"}, {"approved": 1, "approvedBaseline": 0, "campDirector": {"n": "Dr Arif Mohd Khan", "p": "7889818735", "t": "HAJIN", "v": "GUNDI BOON"}, "datedCounts": {"2026-10-02": {"approved": 0, "issued": 6}, "2026-10-03": {"approved": 0, "issued": 32}, "2026-10-04": {"approved": 0, "issued": 3}, "2026-10-05": {"approved": 0, "issued": 9}, "2026-10-06": {"approved": 1, "issued": 13}, "2026-10-07": {"approved": 0, "issued": 17}, "2026-10-08": {"approved": 0, "issued": 3}, "2026-10-09": {"approved": 0, "issued": 4}, "2026-10-10": {"approved": 0, "issued": 23}, "2026-10-11": {"approved": 0, "issued": 18}, "2026-10-12": {"approved": 0, "issued": 19}, "2026-10-13": {"approved": 0, "issued": 29}, "2026-10-14": {"approved": 0, "issued": 12}}, "firstBucket": false, "issued": 188, "issuedBaseline": 0, "pending": 754, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 754, "tehsil": "Hajin", "village": "Gundi Boon"}, {"approved": 2, "approvedBaseline": 0, "campDirector": {"n": "Muzaffar Ahmad Sofi(JAEO)", "p": "9596657419", "t": "HAJIN", "v": "GUND- I- PRANG"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 23}, "2026-10-06": {"approved": 0, "issued": 35}, "2026-10-07": {"approved": 1, "issued": 22}, "2026-10-08": {"approved": 1, "issued": 13}, "2026-10-11": {"approved": 0, "issued": 38}, "2026-10-12": {"approved": 0, "issued": 18}, "2026-10-13": {"approved": 0, "issued": 20}}, "firstBucket": false, "issued": 169, "issuedBaseline": 0, "pending": 785, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 785, "tehsil": "Hajin", "village": "Gund i Prang"}, {"approved": 5, "approvedBaseline": 0, "campDirector": {"n": "Altaf Hassan Bhat (JAEO)", "p": "8493011248", "t": "HAJIN", "v": "GULSHANPORA"}, "datedCounts": {"2026-10-01": {"approved": 2, "issued": 31}, "2026-10-02": {"approved": 1, "issued": 14}, "2026-10-03": {"approved": 1, "issued": 12}, "2026-10-08": {"approved": 1, "issued": 14}, "2026-10-10": {"approved": 0, "issued": 32}, "2026-10-11": {"approved": 0, "issued": 16}, "2026-10-12": {"approved": 0, "issued": 23}, "2026-10-13": {"approved": 0, "issued": 19}, "2026-10-14": {"approved": 0, "issued": 6}}, "firstBucket": false, "issued": 167, "issuedBaseline": 0, "pending": 821, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 821, "tehsil": "Hajin", "village": "Gulshanpora"}, {"approved": 5, "approvedBaseline": 0, "campDirector": {"n": "Altaf Hassan Bhat (JAEO)", "p": "", "t": "HAJIN", "v": "POSHWARI,"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 21}, "2026-10-06": {"approved": 0, "issued": 48}, "2026-10-07": {"approved": 3, "issued": 28}, "2026-10-08": {"approved": 2, "issued": 0}, "2026-10-10": {"approved": 0, "issued": 21}, "2026-10-11": {"approved": 0, "issued": 21}, "2026-10-12": {"approved": 0, "issued": 22}, "2026-10-13": {"approved": 0, "issued": 25}, "2026-10-14": {"approved": 0, "issued": 8}}, "firstBucket": false, "issued": 194, "issuedBaseline": 0, "pending": 1176, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1176, "tehsil": "Hajin", "village": "Poshwari"}, {"approved": 0, "approvedBaseline": 0, "campDirector": {"n": "Muzaffar Ahmad Sofi(JAEO)", "p": "9596657419", "t": "HAJIN", "v": "SRI HARI KARANGUND"}, "datedCounts": {"2026-10-02": {"approved": 0, "issued": 7}, "2026-10-03": {"approved": 0, "issued": 5}, "2026-10-10": {"approved": 0, "issued": 23}, "2026-10-12": {"approved": 0, "issued": 24}, "2026-10-13": {"approved": 0, "issued": 13}, "2026-10-14": {"approved": 0, "issued": 12}}, "firstBucket": false, "issued": 84, "issuedBaseline": 0, "pending": 529, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 529, "tehsil": "Hajin", "village": "Sari Hari Karan Gund"}, {"approved": 4, "approvedBaseline": 0, "campDirector": {"n": "Mr Aejaz Ahmad Wani", "p": "7889818735", "t": "HAJIN", "v": "Vijpara"}, "datedCounts": {"2026-10-01": {"approved": 2, "issued": 17}, "2026-10-02": {"approved": 0, "issued": 3}, "2026-10-05": {"approved": 0, "issued": 20}, "2026-10-06": {"approved": 0, "issued": 26}, "2026-10-07": {"approved": 2, "issued": 0}, "2026-10-08": {"approved": 0, "issued": 18}, "2026-10-10": {"approved": 0, "issued": 26}, "2026-10-11": {"approved": 0, "issued": 23}, "2026-10-12": {"approved": 0, "issued": 30}, "2026-10-13": {"approved": 0, "issued": 30}}, "firstBucket": false, "issued": 193, "issuedBaseline": 0, "pending": 1269, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1269, "tehsil": "Hajin", "village": "Vijipara"}, {"approved": 0, "approvedBaseline": 0, "campDirector": {"n": "Ghulam Rasool Hajam", "p": "9797826874", "t": "HAJIN", "v": "RAKHI HAJIN"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 23}, "2026-10-06": {"approved": 0, "issued": 3}, "2026-10-07": {"approved": 0, "issued": 23}, "2026-10-10": {"approved": 0, "issued": 27}, "2026-10-11": {"approved": 0, "issued": 9}, "2026-10-12": {"approved": 0, "issued": 16}, "2026-10-13": {"approved": 0, "issued": 27}, "2026-10-14": {"approved": 0, "issued": 7}}, "firstBucket": false, "issued": 135, "issuedBaseline": 0, "pending": 1107, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1107, "tehsil": "Hajin", "village": "Rakh i Hajin"}, {"approved": 1, "approvedBaseline": 1, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 1, "issued": 1}}, "firstBucket": true, "issued": 1, "issuedBaseline": 1, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 28, "tehsil": "Hajin", "village": "Gulabwari"}], "villagesBucketed": 17}, {"approved": 772, "approvedBaseline": 405, "bucketed": 0, "issued": 2346, "issuedBaseline": 489, "pending": 5001, "target": 6165, "tehsil": "GUREZ", "totalSurveyNos": 10808, "totalVillages": 9, "villages": [{"approved": 55, "approvedBaseline": 55, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 55, "issued": 59}}, "firstBucket": true, "issued": 59, "issuedBaseline": 59, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 111, "tehsil": "Gurez", "village": "Koragbal"}, {"approved": 5, "approvedBaseline": 0, "campDirector": {"n": "Dr.Naseer Shanum, SDO Gurez", "p": "6005498991", "t": "GUREZ", "v": "Markoot"}, "datedCounts": {"2026-10-01": {"approved": 1, "issued": 37}, "2026-10-02": {"approved": 1, "issued": 46}, "2026-10-03": {"approved": 0, "issued": 38}, "2026-10-05": {"approved": 0, "issued": 35}, "2026-10-06": {"approved": 0, "issued": 1}, "2026-10-07": {"approved": 0, "issued": 9}, "2026-10-08": {"approved": 1, "issued": 9}, "2026-10-09": {"approved": 0, "issued": 23}, "2026-10-10": {"approved": 0, "issued": 28}, "2026-10-11": {"approved": 0, "issued": 30}, "2026-10-12": {"approved": 0, "issued": 6}, "2026-10-13": {"approved": 2, "issued": 11}, "2026-10-14": {"approved": 0, "issued": 7}}, "firstBucket": false, "issued": 280, "issuedBaseline": 0, "pending": 586, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 586, "tehsil": "Gurez", "village": "Markoot"}, {"approved": 158, "approvedBaseline": 158, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 158, "issued": 193}}, "firstBucket": true, "issued": 193, "issuedBaseline": 193, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 421, "tehsil": "Gurez", "village": "Mastan Khopri"}, {"approved": 2, "approvedBaseline": 0, "campDirector": {"n": "Dr.Naseer Shanum, SDO Gurez", "p": "6005498991", "t": "GUREZ", "v": "Dawar"}, "datedCounts": {"2026-10-04": {"approved": 0, "issued": 1}, "2026-10-06": {"approved": 0, "issued": 64}, "2026-10-07": {"approved": 0, "issued": 50}, "2026-10-08": {"approved": 2, "issued": 32}, "2026-10-09": {"approved": 0, "issued": 33}, "2026-10-10": {"approved": 0, "issued": 20}, "2026-10-11": {"approved": 0, "issued": 15}, "2026-10-12": {"approved": 0, "issued": 14}, "2026-10-13": {"approved": 0, "issued": 41}, "2026-10-14": {"approved": 0, "issued": 13}}, "firstBucket": false, "issued": 283, "issuedBaseline": 0, "pending": 670, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 670, "tehsil": "Gurez", "village": "Dawar"}, {"approved": 325, "approvedBaseline": 0, "campDirector": {"n": "Dr.Sameer Ahmad Lone, VAS", "p": "70066028181", "t": "GUREZ", "v": "Shahpora (Achoora -Churwan)"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 35}, "2026-10-02": {"approved": 1, "issued": 57}, "2026-10-03": {"approved": 1, "issued": 36}, "2026-10-05": {"approved": 0, "issued": 55}, "2026-10-06": {"approved": 82, "issued": 51}, "2026-10-07": {"approved": 1, "issued": 49}, "2026-10-08": {"approved": 3, "issued": 46}, "2026-10-09": {"approved": 0, "issued": 2}, "2026-10-10": {"approved": 0, "issued": 43}, "2026-10-11": {"approved": 237, "issued": 31}, "2026-10-12": {"approved": 0, "issued": 28}, "2026-10-13": {"approved": 0, "issued": 18}, "2026-10-14": {"approved": 0, "issued": 8}}, "firstBucket": false, "issued": 459, "issuedBaseline": 0, "pending": 1114, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1114, "tehsil": "Gurez", "village": "Shah Pora - Achoora (Churwan)"}, {"approved": 192, "approvedBaseline": 192, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 192, "issued": 237}}, "firstBucket": true, "issued": 237, "issuedBaseline": 237, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 632, "tehsil": "Gurez", "village": "Khandiyal"}, {"approved": 25, "approvedBaseline": 0, "campDirector": {"n": "Dr.Sameer Ahmad Lone, VAS", "p": "70066028181", "t": "GUREZ", "v": "Badwan-Wanpora"}, "datedCounts": {"2026-10-02": {"approved": 0, "issued": 17}, "2026-10-03": {"approved": 1, "issued": 40}, "2026-10-04": {"approved": 0, "issued": 36}, "2026-10-05": {"approved": 1, "issued": 35}, "2026-10-06": {"approved": 2, "issued": 45}, "2026-10-07": {"approved": 0, "issued": 46}, "2026-10-08": {"approved": 0, "issued": 28}, "2026-10-10": {"approved": 0, "issued": 50}, "2026-10-11": {"approved": 20, "issued": 32}, "2026-10-12": {"approved": 0, "issued": 25}, "2026-10-13": {"approved": 1, "issued": 16}, "2026-10-14": {"approved": 0, "issued": 17}}, "firstBucket": false, "issued": 387, "issuedBaseline": 0, "pending": 1213, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1213, "tehsil": "Gurez", "village": "Badwan"}, {"approved": 2, "approvedBaseline": 0, "campDirector": {"n": "Mr Altaf Ahmad", "p": "7051260966", "t": "GUREZ", "v": "Kanzalwan-Nail"}, "datedCounts": {"2026-10-06": {"approved": 0, "issued": 2}, "2026-10-07": {"approved": 0, "issued": 2}, "2026-10-08": {"approved": 2, "issued": 0}, "2026-10-09": {"approved": 0, "issued": 4}, "2026-10-10": {"approved": 0, "issued": 59}, "2026-10-11": {"approved": 0, "issued": 44}, "2026-10-12": {"approved": 0, "issued": 44}, "2026-10-13": {"approved": 0, "issued": 25}, "2026-10-14": {"approved": 0, "issued": 2}}, "firstBucket": false, "issued": 182, "issuedBaseline": 0, "pending": 571, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 571, "tehsil": "Gurez", "village": "Kanzalwan Nail"}, {"approved": 8, "approvedBaseline": 0, "campDirector": {"n": "Mr Altaf Ahmad", "p": "7051260966", "t": "GUREZ", "v": "Gulshanpora"}, "datedCounts": {"2026-10-02": {"approved": 4, "issued": 38}, "2026-10-03": {"approved": 0, "issued": 32}, "2026-10-05": {"approved": 0, "issued": 45}, "2026-10-06": {"approved": 0, "issued": 37}, "2026-10-07": {"approved": 0, "issued": 53}, "2026-10-08": {"approved": 4, "issued": 24}, "2026-10-11": {"approved": 0, "issued": 8}, "2026-10-12": {"approved": 0, "issued": 8}, "2026-10-13": {"approved": 0, "issued": 5}, "2026-10-14": {"approved": 0, "issued": 16}}, "firstBucket": false, "issued": 266, "issuedBaseline": 0, "pending": 847, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 847, "tehsil": "Gurez", "village": "Gulshanpora"}], "villagesBucketed": 9}, {"approved": 1180, "approvedBaseline": 479, "bucketed": 0, "issued": 2092, "issuedBaseline": 713, "pending": 3898, "target": 5451, "tehsil": "TULAIL", "totalSurveyNos": 8036, "totalVillages": 18, "villages": [{"approved": 29, "approvedBaseline": 0, "campDirector": {"n": "Dr.Ab Rehman, VAS", "p": "7780815224", "t": "TULAIL", "v": "Barnayee"}, "datedCounts": {"2026-10-06": {"approved": 0, "issued": 17}, "2026-10-07": {"approved": 1, "issued": 59}, "2026-10-08": {"approved": 0, "issued": 17}, "2026-10-09": {"approved": 0, "issued": 37}, "2026-10-10": {"approved": 0, "issued": 6}, "2026-10-11": {"approved": 21, "issued": 1}, "2026-10-13": {"approved": 7, "issued": 8}}, "firstBucket": false, "issued": 145, "issuedBaseline": 0, "pending": 234, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 234, "tehsil": "Tulail", "village": "Barnaie"}, {"approved": 142, "approvedBaseline": 142, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 142, "issued": 160}}, "firstBucket": true, "issued": 160, "issuedBaseline": 160, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 265, "tehsil": "Tulail", "village": "Hussangam"}, {"approved": 48, "approvedBaseline": 48, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 48, "issued": 92}}, "firstBucket": true, "issued": 92, "issuedBaseline": 92, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 181, "tehsil": "Tulail", "village": "Manz Gund"}, {"approved": 50, "approvedBaseline": 50, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 50, "issued": 58}}, "firstBucket": true, "issued": 58, "issuedBaseline": 58, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 116, "tehsil": "Tulail", "village": "Wazirthal"}, {"approved": 66, "approvedBaseline": 66, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 66, "issued": 102}}, "firstBucket": true, "issued": 102, "issuedBaseline": 102, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 208, "tehsil": "Tulail", "village": "Puranatulail"}, {"approved": 32, "approvedBaseline": 32, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 32, "issued": 95}}, "firstBucket": true, "issued": 95, "issuedBaseline": 95, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 205, "tehsil": "Tulail", "village": "Kilshay Payeen"}, {"approved": 66, "approvedBaseline": 0, "campDirector": {"n": "Dr.Nazir Ahmad", "p": "9419418166", "t": "TULAIL", "v": "Baduaab"}, "datedCounts": {"2026-10-01": {"approved": 10, "issued": 62}, "2026-10-02": {"approved": 12, "issued": 84}, "2026-10-03": {"approved": 5, "issued": 10}, "2026-10-04": {"approved": 1, "issued": 1}, "2026-10-05": {"approved": 0, "issued": 10}, "2026-10-06": {"approved": 5, "issued": 20}, "2026-10-07": {"approved": 29, "issued": 20}, "2026-10-08": {"approved": 1, "issued": 0}, "2026-10-11": {"approved": 0, "issued": 2}, "2026-10-13": {"approved": 3, "issued": 4}, "2026-10-14": {"approved": 0, "issued": 3}}, "firstBucket": false, "issued": 216, "issuedBaseline": 0, "pending": 502, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 502, "tehsil": "Tulail", "village": "Baduaab"}, {"approved": 222, "approvedBaseline": 0, "campDirector": {"n": "Dr.Aabid VAS", "p": "9149696927", "t": "TULAIL", "v": "Badugam"}, "datedCounts": {"2026-10-06": {"approved": 2, "issued": 69}, "2026-10-07": {"approved": 89, "issued": 61}, "2026-10-08": {"approved": 2, "issued": 36}, "2026-10-09": {"approved": 0, "issued": 29}, "2026-10-10": {"approved": 0, "issued": 33}, "2026-10-11": {"approved": 105, "issued": 15}, "2026-10-12": {"approved": 6, "issued": 2}, "2026-10-13": {"approved": 17, "issued": 19}, "2026-10-14": {"approved": 1, "issued": 2}}, "firstBucket": false, "issued": 266, "issuedBaseline": 0, "pending": 648, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 648, "tehsil": "Tulail", "village": "Budugam"}, {"approved": 92, "approvedBaseline": 0, "campDirector": {"n": "Dr.Aabid VAS", "p": "9149696927", "t": "TULAIL", "v": "Neeru"}, "datedCounts": {"2026-10-01": {"approved": 21, "issued": 41}, "2026-10-02": {"approved": 5, "issued": 35}, "2026-10-03": {"approved": 2, "issued": 25}, "2026-10-05": {"approved": 0, "issued": 33}, "2026-10-06": {"approved": 23, "issued": 2}, "2026-10-07": {"approved": 3, "issued": 2}, "2026-10-09": {"approved": 0, "issued": 3}, "2026-10-11": {"approved": 3, "issued": 0}, "2026-10-12": {"approved": 33, "issued": 36}, "2026-10-13": {"approved": 2, "issued": 2}}, "firstBucket": false, "issued": 179, "issuedBaseline": 0, "pending": 443, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 443, "tehsil": "Tulail", "village": "Neeru"}, {"approved": 28, "approvedBaseline": 0, "campDirector": {"n": "Dr.Ab Rehman, VAS", "p": "7780815224", "t": "TULAIL", "v": "Zedgay"}, "datedCounts": {"2026-10-01": {"approved": 0, "issued": 20}, "2026-10-02": {"approved": 0, "issued": 11}, "2026-10-05": {"approved": 0, "issued": 1}, "2026-10-06": {"approved": 0, "issued": 3}, "2026-10-08": {"approved": 15, "issued": 2}, "2026-10-09": {"approved": 0, "issued": 2}, "2026-10-10": {"approved": 0, "issued": 1}, "2026-10-11": {"approved": 8, "issued": 0}, "2026-10-12": {"approved": 4, "issued": 7}, "2026-10-13": {"approved": 1, "issued": 3}}, "firstBucket": false, "issued": 50, "issuedBaseline": 0, "pending": 132, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 132, "tehsil": "Tulail", "village": "Zedgey"}, {"approved": 54, "approvedBaseline": 54, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 54, "issued": 59}}, "firstBucket": true, "issued": 59, "issuedBaseline": 59, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 157, "tehsil": "Tulail", "village": "Gund Gul Sheikh"}, {"approved": 68, "approvedBaseline": 68, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 68, "issued": 77}}, "firstBucket": true, "issued": 77, "issuedBaseline": 77, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 208, "tehsil": "Tulail", "village": "Malangam"}, {"approved": 53, "approvedBaseline": 0, "campDirector": {"n": "Dr.Ab Rehman, VAS", "p": "7780815224", "t": "TULAIL", "v": "Dangithal"}, "datedCounts": {"2026-10-03": {"approved": 0, "issued": 23}, "2026-10-05": {"approved": 0, "issued": 21}, "2026-10-06": {"approved": 0, "issued": 5}, "2026-10-07": {"approved": 0, "issued": 2}, "2026-10-11": {"approved": 43, "issued": 6}, "2026-10-12": {"approved": 6, "issued": 7}, "2026-10-13": {"approved": 4, "issued": 4}}, "firstBucket": false, "issued": 68, "issuedBaseline": 0, "pending": 187, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 187, "tehsil": "Tulail", "village": "Dengithal"}, {"approved": 19, "approvedBaseline": 19, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 19, "issued": 70}}, "firstBucket": true, "issued": 70, "issuedBaseline": 70, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 213, "tehsil": "Tulail", "village": "Abdullian"}, {"approved": 73, "approvedBaseline": 0, "campDirector": {"n": "Dr.Nazir Ahmad", "p": "9419418166", "t": "TULAIL", "v": "Gujran"}, "datedCounts": {"2026-10-03": {"approved": 26, "issued": 65}, "2026-10-05": {"approved": 0, "issued": 36}, "2026-10-06": {"approved": 8, "issued": 25}, "2026-10-07": {"approved": 22, "issued": 0}, "2026-10-08": {"approved": 0, "issued": 16}, "2026-10-10": {"approved": 0, "issued": 3}, "2026-10-11": {"approved": 17, "issued": 0}, "2026-10-12": {"approved": 0, "issued": 1}}, "firstBucket": false, "issued": 146, "issuedBaseline": 0, "pending": 450, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 450, "tehsil": "Tulail", "village": "Gujran"}, {"approved": 59, "approvedBaseline": 0, "campDirector": {"n": "Mr.Abdullah", "p": "7006868262", "t": "TULAIL", "v": "Buglinder"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 2}, "2026-10-06": {"approved": 0, "issued": 1}, "2026-10-07": {"approved": 0, "issued": 4}, "2026-10-10": {"approved": 0, "issued": 66}, "2026-10-11": {"approved": 44, "issued": 39}, "2026-10-12": {"approved": 6, "issued": 1}, "2026-10-13": {"approved": 9, "issued": 10}}, "firstBucket": false, "issued": 123, "issuedBaseline": 0, "pending": 397, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 397, "tehsil": "Tulail", "village": "Buglinder"}, {"approved": 39, "approvedBaseline": 0, "campDirector": {"n": "Mr.Abdullah", "p": "7006868262", "t": "TULAIL", "v": "Sardaab"}, "datedCounts": {"2026-10-05": {"approved": 0, "issued": 35}, "2026-10-06": {"approved": 0, "issued": 48}, "2026-10-07": {"approved": 32, "issued": 33}, "2026-10-08": {"approved": 4, "issued": 2}, "2026-10-09": {"approved": 0, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 1}, "2026-10-11": {"approved": 2, "issued": 0}, "2026-10-13": {"approved": 1, "issued": 1}, "2026-10-14": {"approved": 0, "issued": 7}}, "firstBucket": false, "issued": 128, "issuedBaseline": 0, "pending": 459, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 459, "tehsil": "Tulail", "village": "Saradaab"}, {"approved": 40, "approvedBaseline": 0, "campDirector": {"n": "Dr.Aabid VAS", "p": "9149696927", "t": "TULAIL", "v": "Jurniyal"}, "datedCounts": {"2026-10-10": {"approved": 0, "issued": 35}, "2026-10-11": {"approved": 31, "issued": 18}, "2026-10-12": {"approved": 9, "issued": 5}}, "firstBucket": false, "issued": 58, "issuedBaseline": 0, "pending": 446, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 446, "tehsil": "Tulail", "village": "Jurnial"}], "villagesBucketed": 18}, {"approved": 566, "approvedBaseline": 159, "bucketed": 0, "issued": 755, "issuedBaseline": 230, "pending": 2912, "target": 3630, "tehsil": "AJAS", "totalSurveyNos": 6853, "totalVillages": 3, "villages": [{"approved": 159, "approvedBaseline": 159, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 159, "issued": 230}}, "firstBucket": true, "issued": 230, "issuedBaseline": 230, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 718, "tehsil": "Ajas", "village": "S.K. Payeen"}, {"approved": 407, "approvedBaseline": 0, "campDirector": {"n": "Leteef Ahmad Shah SMS III", "p": "", "t": "AJAS", "v": "Ajas"}, "datedCounts": {"2026-10-01": {"approved": 22, "issued": 33}, "2026-10-02": {"approved": 1, "issued": 1}, "2026-10-03": {"approved": 35, "issued": 41}, "2026-10-04": {"approved": 0, "issued": 1}, "2026-10-05": {"approved": 29, "issued": 36}, "2026-10-06": {"approved": 20, "issued": 51}, "2026-10-07": {"approved": 1, "issued": 88}, "2026-10-08": {"approved": 108, "issued": 26}, "2026-10-09": {"approved": 1, "issued": 1}, "2026-10-10": {"approved": 0, "issued": 74}, "2026-10-11": {"approved": 86, "issued": 45}, "2026-10-12": {"approved": 36, "issued": 41}, "2026-10-13": {"approved": 11, "issued": 59}, "2026-10-14": {"approved": 57, "issued": 28}}, "firstBucket": false, "issued": 525, "issuedBaseline": 0, "pending": 2912, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 2912, "tehsil": "Ajas", "village": "Ajas"}], "villagesBucketed": 2}, {"approved": 17, "approvedBaseline": 3, "bucketed": 0, "issued": 667, "issuedBaseline": 286, "pending": 1918, "target": 3390, "tehsil": "ALOOSA", "totalSurveyNos": 22421, "totalVillages": 6, "villages": [{"approved": 14, "approvedBaseline": 0, "campDirector": {"n": "Dr Aijaz Ahmad", "p": "9149986467", "t": "ALOOSA", "v": "Mangnipora"}, "datedCounts": {"2026-10-01": {"approved": 2, "issued": 16}, "2026-10-03": {"approved": 1, "issued": 31}, "2026-10-05": {"approved": 0, "issued": 24}, "2026-10-06": {"approved": 1, "issued": 32}, "2026-10-07": {"approved": 2, "issued": 42}, "2026-10-08": {"approved": 7, "issued": 25}, "2026-10-10": {"approved": 0, "issued": 44}, "2026-10-11": {"approved": 0, "issued": 22}, "2026-10-12": {"approved": 0, "issued": 50}, "2026-10-13": {"approved": 1, "issued": 31}, "2026-10-14": {"approved": 0, "issued": 64}}, "firstBucket": false, "issued": 381, "issuedBaseline": 0, "pending": 1918, "pendingGenerated": 0, "pendingIsFirstBucket": false, "pendingNotGenerated": 0, "target": 1918, "tehsil": "Aloosa", "village": "Mangnipora"}, {"approved": 3, "approvedBaseline": 3, "campDirector": null, "datedCounts": {"2026-09-30": {"approved": 3, "issued": 286}}, "firstBucket": true, "issued": 286, "issuedBaseline": 286, "pending": 0, "pendingGenerated": 0, "pendingIsFirstBucket": true, "pendingNotGenerated": 0, "target": 1472, "tehsil": "Aloosa", "village": "Ashtangoo"}], "villagesBucketed": 2}]};
+
+// First day after the frozen baseline — Reset / defaults start here, so the
+// user never sees the Sep 30 baseline block counted in "Additions between".
+// If the baseline date advances in the future, this follows automatically.
+function dayAfter(ymd) {
+  var p = ymd.split('-');
+  var d = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0');
+}
+var POST_BASELINE_START = dayAfter(DATA.baselineDate || '2026-09-30');  // e.g. '2026-10-01'
+
+// Default date range: just the latest snapshot date (that single day's additions).
+// If latest snapshot is 5 Oct, default is 05-10 → 05-10 — shows ONLY what was
+// added on that day, nothing earlier. With no snapshots: start of Oct.
+var addFrom, addTo;
+(function pickDefaultRange() {
+  var snaps = (DATA.snapshotDates || []).slice();
+  if (snaps.length >= 1) {
+    addFrom = snaps[snaps.length - 1];
+    addTo   = snaps[snaps.length - 1];
+  } else {
+    addFrom = POST_BASELINE_START;
+    addTo   = DATA.maxDate || POST_BASELINE_START;
+  }
+})();
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function pctClass(p){ return p===0?'pct-zero':p<30?'pct-low':p<70?'pct-medium':'pct-good'; }
+var FIXED={blue:'#1e88e5',orange:'#f57c00',green:'#43a047'};
+function pctBar(num,den,color){ var p=den>0?Math.round(num/den*100):0; var cls=color?'pct-fixed-'+color:pctClass(p); var ts=color&&FIXED[color]?' style="color:'+FIXED[color]+';font-weight:600"':''; var w=Math.min(p,100); return '<span class="progress"><span class="progress-fill '+cls+'" style="width:'+w+'%"></span></span><span class="pct-value"'+ts+'>'+p+'%</span>'; }
+
+function villageAddInRange(v,from,to){ var dc=v.datedCounts||{}; var n=0; for(var d in dc){ if(d>=from&&d<=to) n+=(dc[d].issued||0); } return n; }
+function tehsilAddInRange(t,from,to){ var n=0; for(var i=0;i<t.villages.length;i++) n+=villageAddInRange(t.villages[i],from,to); return n; }
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtShort(ymd){ if(!ymd) return ''; var p=ymd.split('-'); return parseInt(p[2],10)+' '+MONTHS[parseInt(p[1],10)-1]+" '"+p[0].slice(2); }
+function addRangeLabel(){ return fmtShort(addFrom)+' – '+fmtShort(addTo); }
+function cdNormName(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9\s]/g,' ').replace(/\s+/g,' ').trim(); }
+
+/* ---------- RENDER: TEHSIL L1 ---------- */
+function renderTehsils(){
+  var body='',totAR=0,totPend=0;
+  for(var i=0;i<DATA.tehsils.length;i++){
+    var t=DATA.tehsils[i]; var since=t.issued-(t.issuedBaseline||0); var ar=tehsilAddInRange(t,addFrom,addTo); totAR+=ar;
+    var pend=t.pending||0; totPend+=pend;
+    var safe=t.tehsil.replace(/'/g,"\\'");
+    body+='<tr class="clickable" onclick="showVillages(\''+safe+'\')">'
+        +'<td>'+(i+1)+'</td>'
+        +'<td><strong>'+esc(t.tehsil)+'</strong></td>'
+        +'<td class="num">'+(t.totalVillages||'—')+'</td>'
+        +'<td class="num">'+t.villagesBucketed+'</td>'
+        +'<td class="num">'+t.target.toLocaleString()+'</td>'
+        +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
+        +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
+        +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+        +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
+        +'<td>'+pctBar(t.issued,t.target,'orange')+'</td>'
+        +'<td class="num">'+t.approved.toLocaleString()+'</td>'
+        +'<td>'+pctBar(t.approved,t.issued,'green')+'</td>'
+        +'</tr>';
+  }
+  var gT=0,gI=0,gA=0,gB=0,gVR=0,gVB=0;
+  for(var i=0;i<DATA.tehsils.length;i++){ var t=DATA.tehsils[i]; gT+=t.target;gI+=t.issued;gA+=t.approved;gB+=(t.issuedBaseline||0);gVR+=t.totalVillages||0;gVB+=t.villagesBucketed; }
+  var gS=gI-gB;
+  document.querySelector('#tehsilTable tbody').innerHTML=body;
+  document.querySelector('#tehsilTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
+    +'<td class="num">'+gVR.toLocaleString()+'</td>'
+    +'<td class="num">'+gVB.toLocaleString()+'</td>'
+    +'<td class="num">'+gT.toLocaleString()+'</td>'
+    +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
+    +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
+    +'<td>'+pctBar(gI,gT,'orange')+'</td>'
+    +'<td class="num">'+gA.toLocaleString()+'</td>'
+    +'<td>'+pctBar(gA,gI,'green')+'</td>'
+    +'</tr>';
+  var h=document.getElementById('tehsilAddRangeHdr'); if(h) h.innerHTML='Additions between<br><small style="font-weight:400;color:#a86416">'+addRangeLabel()+'</small>';
+}
+
+/* ---------- RENDER: VILLAGES L2 ---------- */
+function renderVillages(tehsilName){
+  var t=null; for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tehsilName){ t=DATA.tehsils[i]; break; }
+  if(!t) return;
+  document.getElementById('villageViewTitle').textContent='Villages in '+tehsilName;
+  document.getElementById('villageBreadcrumb').textContent=tehsilName;
+  document.getElementById('villageCount').textContent=t.villages.length+' villages';
+  var vs=t.villages.slice().sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
+  var body='',totAR=0,totPend=0;
+  for(var j=0;j<vs.length;j++){
+    var v=vs[j]; var since=v.issued-(v.issuedBaseline||0); var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
+    var pend=v.pending||0; if(!v.firstBucket) totPend+=pend;
+    var rowCls=v.firstBucket?' class="first-bucket-row"':'';
+    var badge=v.firstBucket?' <em class="first-bucket-badge">1st Bucket</em>':'';
+    var pendCell=v.firstBucket
+      ? '<td class="num pending-col pending-col-tehsil pending-first-bucket">1st Bucket</td>'
+      : '<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>';
+    body+='<tr'+rowCls+'><td>'+(j+1)+'</td>'
+        +'<td><strong>'+esc(v.village)+'</strong>'+badge+'</td>'
+        +'<td class="num">'+v.target.toLocaleString()+'</td>'
+        +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
+        +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
+        +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+        +pendCell
+        +'<td>'+pctBar(v.issued,v.target)+'</td>'
+        +'<td class="num">'+v.approved.toLocaleString()+'</td>'
+        +'<td>'+pctBar(v.approved,v.issued)+'</td></tr>';
+  }
+  var tIB=vs.reduce(function(s,v){return s+(v.issuedBaseline||0);},0); var tS=t.issued-tIB;
+  document.querySelector('#villageTable tbody').innerHTML=body;
+  document.querySelector('#villageTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
+    +'<td class="num">'+t.target.toLocaleString()+'</td>'
+    +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#1e88e5">'+(tS>0?'+':'')+tS.toLocaleString()+'</td>'
+    +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
+    +'<td>'+pctBar(t.issued,t.target)+'</td>'
+    +'<td class="num">'+t.approved.toLocaleString()+'</td>'
+    +'<td>'+pctBar(t.approved,t.issued)+'</td></tr>';
+  var h=document.getElementById('villageAddRangeHdr'); if(h) h.innerHTML='Additions between<br><small style="font-weight:400;color:#a86416">'+addRangeLabel()+'</small>';
+}
+
+/* ---------- RENDER: CD L1 ---------- */
+function cdCollect(){
+  var out=[];
+  for(var i=0;i<DATA.tehsils.length;i++){
+    var t=DATA.tehsils[i]; var vs=[];
+    for(var j=0;j<t.villages.length;j++){
+      var v=t.villages[j];
+      if(!(v.campDirector && v.campDirector.n)) continue;
+      // Treat 'NA' / 'N/A' / 'Not Available' as 'no director assigned' — skip.
+      var nUpper = String(v.campDirector.n).trim().toUpperCase();
+      if (nUpper === 'NA' || nUpper === 'N/A' || nUpper === 'NOT AVAILABLE') continue;
+      vs.push({village:v.village,target:v.target,issued:v.issued,approved:v.approved,issuedBaseline:v.issuedBaseline||0,pending:v.pending||0,datedCounts:v.datedCounts||{},dir:{name:v.campDirector.n,phone:v.campDirector.p||''}});
+    }
+    if(vs.length) out.push({tehsil:t.tehsil,villages:vs});
+  }
+  return out;
+}
+function renderCDTehsils(){
+  var data=cdCollect(),body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,gPend=0,allSet={};
+  for(var i=0;i<data.length;i++){
+    var t=data[i],tg=0,is=0,ap=0,bl=0,ar=0,pend=0,ds={};
+    for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; tg+=v.target;is+=v.issued;ap+=v.approved;bl+=v.issuedBaseline; ar+=villageAddInRange(v,addFrom,addTo); pend+=(v.pending||0); var k=cdNormName(v.dir.name); ds[k]=1; allSet[k]=1; }
+    var since=is-bl; var safe=t.tehsil.replace(/'/g,"\\'");
+    body+='<tr class="clickable" onclick="showCDDirectors(\''+safe+'\')">'
+      +'<td>'+(i+1)+'</td><td><strong>'+esc(t.tehsil)+'</strong></td>'
+      +'<td class="num">'+Object.keys(ds).length+'</td>'
+      +'<td class="num">'+t.villages.length+'</td>'
+      +'<td class="num">'+tg.toLocaleString()+'</td>'
+      +'<td class="num"><strong>'+is.toLocaleString()+'</strong></td>'
+      +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+      +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
+      +'<td>'+pctBar(is,tg,'orange')+'</td>'
+      +'<td class="num">'+ap.toLocaleString()+'</td>'
+      +'<td>'+pctBar(ap,is,'green')+'</td></tr>';
+    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=t.villages.length;gAR+=ar;gPend+=pend;
+  }
+  var gD=Object.keys(allSet).length, gS=gI-gB;
+  document.querySelector('#cdTehsilTable tbody').innerHTML=body||'<tr><td colspan="12" style="text-align:center;color:#888;padding:30px">No camp-director data yet.</td></tr>';
+  document.querySelector('#cdTehsilTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
+    +'<td class="num">'+gD+'</td><td class="num">'+gV+'</td>'
+    +'<td class="num">'+gT.toLocaleString()+'</td>'
+    +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
+    +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
+    +'<td>'+pctBar(gI,gT,'orange')+'</td>'
+    +'<td class="num">'+gA.toLocaleString()+'</td>'
+    +'<td>'+pctBar(gA,gI,'green')+'</td></tr>';
+  var h=document.getElementById('cdTehsilAddRangeHdr'); if(h) h.innerHTML='Additions between<br><small style="font-weight:400;color:#a86416">'+addRangeLabel()+'</small>';
+  document.getElementById('cdTehsilCount').textContent=data.length+' tehsils · '+gV+' villages · '+gD+' directors';
+}
+
+/* ---------- RENDER: CD L2 ---------- */
+function renderCDDirectors(tehsilName){
+  var data=cdCollect(),t=null;
+  for(var i=0;i<data.length;i++) if(data[i].tehsil===tehsilName){ t=data[i]; break; }
+  if(!t){ showCDTehsils(); return; }
+  var groups={};
+  // Group by director name only (not name+phone). Same person with blank/different
+  // phone across villages still groups together. Phone shown = first non-empty seen.
+  for(var j=0;j<t.villages.length;j++){
+    var v=t.villages[j];
+    var k=cdNormName(v.dir.name);
+    if(!groups[k]) groups[k]={name:v.dir.name, phone:v.dir.phone||'', villages:[]};
+    if(!groups[k].phone && v.dir.phone) groups[k].phone = v.dir.phone;
+    groups[k].villages.push(v);
+  }
+  var dirs=Object.keys(groups).map(function(k){
+    var g = Object.assign({key:k}, groups[k]);
+    // Pre-compute totals so we can sort by issue % high → low
+    var tg=0, is=0;
+    for (var m=0; m<g.villages.length; m++) { tg += g.villages[m].target; is += g.villages[m].issued; }
+    g._issuePct = tg > 0 ? is/tg : -1;  // directors with no target sink to bottom
+    return g;
+  });
+  dirs.sort(function(a,b){
+    if (b._issuePct !== a._issuePct) return b._issuePct - a._issuePct;
+    return a.name.localeCompare(b.name);  // tie-break by name
+  });
+  var body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,gPend=0;
+  for(var d=0;d<dirs.length;d++){
+    var dir=dirs[d]; var tg=0,is=0,ap=0,bl=0,ar=0,pend=0;
+    for(var k=0;k<dir.villages.length;k++){ tg+=dir.villages[k].target; is+=dir.villages[k].issued; ap+=dir.villages[k].approved; bl+=dir.villages[k].issuedBaseline; ar+=villageAddInRange(dir.villages[k],addFrom,addTo); pend+=(dir.villages[k].pending||0); }
+    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=dir.villages.length;gAR+=ar;gPend+=pend;
+    var since=is-bl, multi=dir.villages.length>1;
+    var safeT=tehsilName.replace(/'/g,"\\'"), safeK=dir.key.replace(/'/g,"\\'");
+    var onclk=multi?' class="clickable" onclick="showCDVillages(\''+safeT+'\',\''+safeK+'\')"':'';
+    var names=dir.villages.map(function(x){return esc(x.village);}).join(', ');
+    var vcell='<div style="font-weight:600">'+dir.villages.length+(multi?' <span style="color:#999">›</span>':'')+'</div>'
+             +'<div style="font-size:10.5px;color:#666;font-weight:400;line-height:1.3;margin-top:2px;white-space:normal">'+names+'</div>';
+    body+='<tr'+onclk+'><td>'+(d+1)+'</td>'
+      +'<td><strong>'+esc(dir.name)+'</strong></td>'
+      +'<td class="num" style="min-width:150px;max-width:260px;text-align:left">'+vcell+'</td>'
+      +'<td class="num">'+tg.toLocaleString()+'</td>'
+      +'<td class="num"><strong>'+is.toLocaleString()+'</strong></td>'
+      +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+      +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
+      +'<td>'+pctBar(is,tg,'orange')+'</td>'
+      +'<td class="num">'+ap.toLocaleString()+'</td>'
+      +'<td>'+pctBar(ap,is,'green')+'</td></tr>';
+  }
+  var gS=gI-gB;
+  document.querySelector('#cdDirectorTable tbody').innerHTML=body;
+  document.querySelector('#cdDirectorTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
+    +'<td class="num">'+gV+'</td><td class="num">'+gT.toLocaleString()+'</td>'
+    +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
+    +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
+    +'<td>'+pctBar(gI,gT,'orange')+'</td>'
+    +'<td class="num">'+gA.toLocaleString()+'</td>'
+    +'<td>'+pctBar(gA,gI,'green')+'</td></tr>';
+  var h=document.getElementById('cdDirectorAddRangeHdr'); if(h) h.innerHTML='Additions between<br><small style="font-weight:400;color:#a86416">'+addRangeLabel()+'</small>';
+  document.getElementById('cdDirTitle').textContent='Camp Directors in '+tehsilName;
+  document.getElementById('cdDirBreadcrumb').textContent=tehsilName;
+  document.getElementById('cdDirCount').textContent=dirs.length+' directors · '+t.villages.length+' villages';
+}
+
+/* ---------- RENDER: CD L3 ---------- */
+function renderCDVillages(tehsilName,dirKey){
+  var data=cdCollect(),t=null;
+  for(var i=0;i<data.length;i++) if(data[i].tehsil===tehsilName){ t=data[i]; break; }
+  if(!t){ showCDTehsils(); return; }
+  var vs=[],dirName='';
+  for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; if(cdNormName(v.dir.name)===dirKey){ vs.push(v); dirName=v.dir.name; } }
+  if(!vs.length){ showCDDirectors(tehsilName); return; }
+  // Sort villages under this director by issue % high → low
+  vs.sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
+  var body='',gT=0,gI=0,gA=0,gB=0,gAR=0,gPend=0;
+  for(var j=0;j<vs.length;j++){
+    var v=vs[j], since=v.issued-v.issuedBaseline, ar=villageAddInRange(v,addFrom,addTo), pend=v.pending||0;
+    gT+=v.target;gI+=v.issued;gA+=v.approved;gB+=v.issuedBaseline;gAR+=ar;gPend+=pend;
+    body+='<tr><td>'+(j+1)+'</td><td><strong>'+esc(v.village)+'</strong></td>'
+      +'<td class="num">'+v.target.toLocaleString()+'</td>'
+      +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
+      +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
+      +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
+      +'<td>'+pctBar(v.issued,v.target,'orange')+'</td>'
+      +'<td class="num">'+v.approved.toLocaleString()+'</td>'
+      +'<td>'+pctBar(v.approved,v.issued,'green')+'</td></tr>';
+  }
+  var gS=gI-gB;
+  document.querySelector('#cdVillageTable tbody').innerHTML=body;
+  document.querySelector('#cdVillageTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
+    +'<td class="num">'+gT.toLocaleString()+'</td>'
+    +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
+    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
+    +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
+    +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
+    +'<td>'+pctBar(gI,gT,'orange')+'</td>'
+    +'<td class="num">'+gA.toLocaleString()+'</td>'
+    +'<td>'+pctBar(gA,gI,'green')+'</td></tr>';
+  var h=document.getElementById('cdVillageAddRangeHdr'); if(h) h.innerHTML='Additions between<br><small style="font-weight:400;color:#a86416">'+addRangeLabel()+'</small>';
+  document.getElementById('cdVilTitle').textContent='Villages under '+dirName;
+  document.getElementById('cdVilBreadcrumb').textContent=tehsilName+' › '+dirName;
+  document.getElementById('cdVilCount').textContent=vs.length+' village'+(vs.length>1?'s':'');
+  _cdLastTehsil=tehsilName;
+}
+var _cdLastTehsil=null;
+function cdBackToDirectors(){ if(_cdLastTehsil) showCDDirectors(_cdLastTehsil); else showCDTehsils(); }
+
+/* ---------- NAV ---------- */
+function hideAllViews(){ ['viewTehsil','viewVillage','viewCDTehsil','viewCDDirectors','viewCDVillages'].forEach(function(id){ document.getElementById(id).classList.remove('active'); }); }
+function setTab(name){ document.getElementById('tabProgress').classList.toggle('active',name==='progress'); document.getElementById('tabCD').classList.toggle('active',name==='cd'); }
+function switchTab(name){ hideAllViews(); if(name==='cd'){ document.getElementById('viewCDTehsil').classList.add('active'); setTab('cd'); renderCDTehsils(); } else { document.getElementById('viewTehsil').classList.add('active'); setTab('progress'); renderTehsils(); } window.scrollTo(0,0); }
+function showTehsils(){ hideAllViews(); document.getElementById('viewTehsil').classList.add('active'); setTab('progress'); renderTehsils(); window.scrollTo(0,0); }
+function showVillages(name){ renderVillages(name); hideAllViews(); document.getElementById('viewVillage').classList.add('active'); setTab('progress'); window.scrollTo(0,0); }
+function showCDTehsils(){ hideAllViews(); document.getElementById('viewCDTehsil').classList.add('active'); setTab('cd'); renderCDTehsils(); window.scrollTo(0,0); }
+function showCDDirectors(t){ renderCDDirectors(t); hideAllViews(); document.getElementById('viewCDDirectors').classList.add('active'); setTab('cd'); window.scrollTo(0,0); }
+function showCDVillages(t,k){ renderCDVillages(t,k); hideAllViews(); document.getElementById('viewCDVillages').classList.add('active'); setTab('cd'); window.scrollTo(0,0); }
+
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape') return;
+  if(document.getElementById('viewVillage').classList.contains('active')){ showTehsils(); return; }
+  if(document.getElementById('viewCDVillages').classList.contains('active')){ cdBackToDirectors(); return; }
+  if(document.getElementById('viewCDDirectors').classList.contains('active')){ showCDTehsils(); return; }
+});
+
+/* ---------- DATE PICKER ---------- */
+(function(){
+  var fe=document.getElementById('addFrom'), te=document.getElementById('addTo'), rb=document.getElementById('addResetBtn');
+  // flatpickr renders dd-mm-yyyy but we keep internal values as yyyy-mm-dd for comparison.
+  // dateFormat is what gets written to the input .value (so we need yyyy-mm-dd for compare,
+  // altInput makes the user-facing field show dd-mm-yyyy).
+  var common = { dateFormat: "Y-m-d", altInput: true, altFormat: "d-m-Y",
+                 minDate: DATA.minDate, maxDate: DATA.maxDate, allowInput: true };
+  var fp1 = flatpickr(fe, Object.assign({ defaultDate: addFrom, onChange: apply }, common));
+  var fp2 = flatpickr(te, Object.assign({ defaultDate: addTo,   onChange: apply }, common));
+  function apply(){
+    var f = fe.value || DATA.minDate, t = te.value || DATA.maxDate;
+    if(t < f){ var tmp=f; f=t; t=tmp; fp1.setDate(f, false); fp2.setDate(t, false); }
+    addFrom = f; addTo = t; rerender();
+  }
+  rb.addEventListener('click', function(){
+    // Reset = post-baseline start (1 Oct onwards) → latest known date.
+    // Baseline is intentionally excluded so the column shows only true Oct+ additions.
+    var toDate = DATA.maxDate && DATA.maxDate > POST_BASELINE_START ? DATA.maxDate : POST_BASELINE_START;
+    fp1.setDate(POST_BASELINE_START, false);
+    fp2.setDate(toDate, false);
+    addFrom = POST_BASELINE_START; addTo = toDate;
+    rerender();
+  });
+})();
+function rerender(){
+  if(document.getElementById('viewVillage').classList.contains('active')){ var b=document.getElementById('villageBreadcrumb').textContent; if(b) renderVillages(b); }
+  if(document.getElementById('viewTehsil').classList.contains('active')) renderTehsils();
+  if(document.getElementById('viewCDTehsil').classList.contains('active')) renderCDTehsils();
+  if(document.getElementById('viewCDDirectors').classList.contains('active')){ var b=document.getElementById('cdDirBreadcrumb').textContent; if(b) renderCDDirectors(b); }
+  if(document.getElementById('viewCDVillages').classList.contains('active')){ var bc=document.getElementById('cdVilBreadcrumb').textContent; if(bc&&bc.indexOf(' › ')>=0){ var p=bc.split(' › '); var tn=p[0].trim(), dn=p[1].trim(); for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tn) for(var j=0;j<DATA.tehsils[i].villages.length;j++){ var cd=DATA.tehsils[i].villages[j].campDirector; if(cd&&cd.n===dn){ renderCDVillages(tn,cdNormName(cd.n)); return; } } } }
+}
+
+// Camp Director Progress is the default open tab.
+renderCDTehsils();
+</script>
+</body>
+</html>
