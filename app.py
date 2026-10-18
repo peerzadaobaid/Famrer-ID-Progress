@@ -554,6 +554,19 @@ def villages_seen_in_uploads():
 # Pending Entries — pulled from the published Google Sheet
 # =========================================================================
 
+# ---------------------------------------------------------------------------
+# KILL SWITCH — Google Sheet integration
+# ---------------------------------------------------------------------------
+# Flip to True to re-enable the live Pending Entries column pulled from the
+# published Google Sheet. When False (default now), the portal makes ZERO
+# network calls to Google — no cold-start blocking, no cache logic, no
+# 15-second timeouts on the first page load. The Pending column is force-
+# hidden on the dashboard regardless of the saved admin toggle, and the
+# Reconciliation Data admin page shows a disabled notice.
+# To bring it back: set PENDING_SHEET_ENABLED = True, push, done.
+PENDING_SHEET_ENABLED = False
+# ---------------------------------------------------------------------------
+
 # The sheet is "Published to web → CSV" so this URL returns raw CSV with no auth.
 # Override by setting PENDING_SHEET_URL env var on Render if the URL changes.
 DEFAULT_PENDING_SHEET_URL = (
@@ -677,6 +690,11 @@ def fetch_pending_entries(force=False):
     for the admin Reconciliation page.
     Fails silently so the dashboard still renders.
     """
+    # Kill switch — never make a network call when disabled.
+    if not PENDING_SHEET_ENABLED:
+        _pending_cache.update({"ts": 0, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {},
+                               "error": "disabled", "formula": None})
+        return {}
     import time, urllib.request
     now = time.time()
     if not force and (now - _pending_cache["ts"]) < PENDING_CACHE_SECONDS and _pending_cache["map"]:
@@ -1104,8 +1122,21 @@ def build_nested_structure(skip_pending=False):
             "formula": _pending_cache.get("formula"),  # "total - generated - not_generated" or "direct"
             "totalDistrict": sum(t.get("pending", 0) for t in tehsil_list),
         },
-        "settings": load_settings(),
+        "settings": _effective_settings(),
+        "pendingDisabled": not PENDING_SHEET_ENABLED,
     }
+
+
+def _effective_settings():
+    """Return settings with pending-column flags force-off when the Google Sheet
+    integration is disabled. Keeps saved admin preferences in the file untouched
+    so flipping PENDING_SHEET_ENABLED back on restores whatever the admin had
+    chosen before."""
+    s = dict(load_settings())
+    if not PENDING_SHEET_ENABLED:
+        s["show_pending_entries"] = False
+        s["show_pending_entries_tehsil"] = False
+    return s
 
 
 # =========================================================================
@@ -1158,7 +1189,8 @@ def logout():
 @admin_required
 def admin_home():
     return render_template("admin.html", settings=load_settings(),
-                           mirror_url=_mirror_pages_url())
+                           mirror_url=_mirror_pages_url(),
+                           pending_disabled=not PENDING_SHEET_ENABLED)
 
 
 @app.route("/admin/toggle-pending", methods=["POST"])
@@ -1223,6 +1255,16 @@ def toggle_pending_tehsil():
 @app.route("/admin/reconciliation", methods=["GET", "POST"])
 @admin_required
 def reconciliation():
+    # If the Google Sheet integration is turned off entirely, there's nothing
+    # to reconcile — render a disabled notice instead of hitting the sheet.
+    if not PENDING_SHEET_ENABLED:
+        return render_template("reconciliation.html",
+                               tehsil_rows=[], unused_sheet_rows=[],
+                               fetch_error=None, formula=None,
+                               columns_seen=[], rows_matched=0,
+                               sheet_row_total=0, error=None, saved=False,
+                               pending_disabled=True)
+
     error = None
     saved = False
 
