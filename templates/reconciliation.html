@@ -57,6 +57,11 @@
 </div></div>
 
 <div class="container">
+  {% if pending_disabled %}
+    <div style="background:#eef5fb;border:1px solid #c7d6ea;color:#1a3a5c;padding:14px 16px;border-radius:8px;margin-bottom:16px;font-size:13.5px">
+      <b>ℹ Google Sheet integration is turned off.</b> The portal makes zero calls to Google and the Pending Entries column is hidden across all dashboards. There's nothing to reconcile here right now. To re-enable, set <code>PENDING_SHEET_ENABLED = True</code> in <code>app.py</code> and redeploy.
+    </div>
+  {% endif %}
   {% if saved %}
     <div class="ok">✓ Mappings saved. The Pending Entries column on the dashboard will update on the next page load (sheet is cached for 5 min).</div>
   {% endif %}

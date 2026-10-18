@@ -18,6 +18,13 @@
   {% elif request.args.get('mirror') == 'err' %}
     <div class="err">⚠ {{ request.args.get('msg', 'Mirror refresh failed.') }}</div>
   {% endif %}
+
+  {% if pending_disabled %}
+    <div style="background:#eef5fb;border:1px solid #c7d6ea;color:#1a3a5c;padding:12px 14px;border-radius:6px;margin-bottom:16px;font-size:13px">
+      <b>ℹ Google Sheet integration is turned off.</b> The portal makes zero calls to Google — no cold-start delays, no 15-second timeouts. Pending Entries column is hidden on all dashboards and the Reconciliation page is disabled. To re-enable, set <code>PENDING_SHEET_ENABLED = True</code> in <code>app.py</code> and redeploy.
+    </div>
+  {% endif %}
+
   <div class="admin-tiles">
     <a href="{{ url_for('upload') }}" class="admin-tile">
       <span class="icon">⬆</span>
@@ -34,13 +41,16 @@
       <div class="title">Camp Directors</div>
       <div class="desc">Change the camp director (name &amp; phone) assigned to any of the 59 villages.</div>
     </a>
+    {% if not pending_disabled %}
     <a href="{{ url_for('reconciliation') }}" class="admin-tile">
       <span class="icon">🔗</span>
       <div class="title">Reconciliation Data</div>
       <div class="desc">Tehsil-wise view of every row the Google Sheet contributes. Fix village spelling mismatches via dropdown so Pending Entries lines up with the portal.</div>
     </a>
+    {% endif %}
   </div>
 
+  {% if not pending_disabled %}
   <div class="card" style="margin-top:20px">
     <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Dashboard columns</h2>
     <p style="color:#556;font-size:13.5px;margin-bottom:14px">Toggle optional columns on or off for everyone viewing the dashboard. Settings are saved to GitHub and take effect after Render redeploys (~1 min).</p>
@@ -87,6 +97,7 @@
       </form>
     </div>
   </div>
+  {% endif %}  {# /pending_disabled gate on Dashboard columns card #}
 
   <div class="card" style="margin-top:20px">
     <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Public mirror site</h2>
