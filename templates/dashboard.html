@@ -518,9 +518,10 @@ function renderVillages(tehsilName){
     var v=vs[j]; var since=v.issued-(v.issuedBaseline||0); var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
     var pend=v.pending||0; if(!v.firstBucket) totPend+=pend;
     var rowCls=v.firstBucket?' class="first-bucket-row"':'';
+    var nbLabel = (DATA.newBatchStartLabel ? 'Started '+DATA.newBatchStartLabel : 'Started 20 Oct');
     var badge=v.firstBucket
       ? ' <em class="first-bucket-badge">1st Bucket</em>'
-      : (v.newBatch ? ' <em class="new-batch-badge">Started 20 Oct</em>' : '');
+      : (v.newBatch ? ' <em class="new-batch-badge">'+nbLabel+'</em>' : '');
     var pendCell=v.firstBucket
       ? '<td class="num pending-col pending-col-tehsil pending-first-bucket">1st Bucket</td>'
       : '<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>';
