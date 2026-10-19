@@ -264,6 +264,28 @@ VILLAGE_ALIAS = {
     "PURANA TULAIL":             "PURANATULAIL",
 }
 
+# v24 — 24 villages added to complete district coverage (124 total). These are
+# starting enrollment on 20 Oct 2026 (previously untracked). The dashboard
+# shows them with a "Started 20 Oct" badge instead of raw figures until data
+# starts flowing in. Keys are normalized village names (via norm_name).
+NEW_BATCH_START_LABEL = "Started 20 Oct"
+NEW_BATCH_VILLAGE_KEYS = {
+    # AJAS
+    "AJAS||NOORABAD AJAS",
+    # ALOOSA
+    "ALOOSA||ALOOSA", "ALOOSA||KEHNOOSA", "ALOOSA||MALANGAM", "ALOOSA||QUIL MUQAM",
+    # BANDIPORA
+    "BANDIPORA||AJAR", "BANDIPORA||ARINDARDPORA", "BANDIPORA||BANDIPORA",
+    "BANDIPORA||BONAKOOT", "BANDIPORA||CHITTIBANDAY", "BANDIPORA||KALOOSA NATHPORA",
+    "BANDIPORA||KONAN BABAGUND", "BANDIPORA||MADDER", "BANDIPORA||MANTRIGAM",
+    "BANDIPORA||QAZIPORA PUTUSHAI", "BANDIPORA||SUMLARSHOKBABA",
+    # HAJIN
+    "HAJIN||BAHARABAD", "HAJIN||CHANDERGEERN", "HAJIN||HAJIN", "HAJIN||NAIDKHAI",
+    "HAJIN||RAKH I MALGAM", "HAJIN||SADUNARA", "HAJIN||SHAH GUND",
+    # SUMBAL
+    "SUMBAL||RKHI ASHAM",
+}
+
 FIRST_BUCKET_VILLAGE_KEYS = {
     "ABDULLIAN", "ASHTANGOO", "BRAR", "CHAK ARSALA KHAN", "CHAK RESHIPORA",
     "CHANDAJI", "CHEWA", "CHUNTIMULLA", "DACHIGAM", "GAAD KHUD", "GULABWARI",
@@ -1035,6 +1057,11 @@ def build_nested_structure(skip_pending=False):
             "firstBucket": is_first_bucket(rec["village"]),
             "campDirector": camp_director_for(rec["tehsil"], rec["village"]),
         }
+
+    # v24 — flag the 24 new-batch villages (starting 20 Oct) so the dashboard
+    # shows a "Started 20 Oct" badge instead of their 0/0 figures.
+    for key, v in villages.items():
+        v["newBatch"] = (key in NEW_BATCH_VILLAGE_KEYS)
 
     # Attach pending-entries count. Formula is
     #     Pending = max(0, PortalTarget − Generated − NotGenerated)
