@@ -649,6 +649,7 @@ def load_settings():
     defaults = {
         "show_pending_entries": False,         # master toggle — governs CD views
         "show_pending_entries_tehsil": False,  # extra flag — tehsil & village views only show pending when both this and the master are on
+        "show_new_batch_villages": False,      # v27 — hide the 24 "Started 20 Oct" villages everywhere until enrollment data starts
     }
     if not os.path.exists(SETTINGS_FILE):
         return defaults
@@ -1063,6 +1064,13 @@ def build_nested_structure(skip_pending=False):
     for key, v in villages.items():
         v["newBatch"] = (key in NEW_BATCH_VILLAGE_KEYS)
 
+    # v27 — if the admin has not yet released the new-batch villages for
+    # viewing, drop them from the state entirely. They disappear from every
+    # dashboard view (tehsil, village, camp director) and from the mirror.
+    _settings_for_filter = load_settings()
+    if not _settings_for_filter.get("show_new_batch_villages", False):
+        villages = {k: v for k, v in villages.items() if not v.get("newBatch")}
+
     # Attach pending-entries count. Formula is
     #     Pending = max(0, PortalTarget − Generated − NotGenerated)
     # where Generated + NotGenerated come from the Google Sheet (0 if the
@@ -1258,7 +1266,8 @@ def logout():
 def admin_home():
     return render_template("admin.html", settings=load_settings(),
                            mirror_url=_mirror_pages_url(),
-                           pending_disabled=not PENDING_SHEET_ENABLED)
+                           pending_disabled=not PENDING_SHEET_ENABLED,
+                           new_batch_count=len(NEW_BATCH_VILLAGE_KEYS))
 
 
 @app.route("/admin/toggle-pending", methods=["POST"])
@@ -1296,6 +1305,27 @@ def _publish_mirror_quietly():
         publish_mirror()
     except Exception:
         pass
+
+
+@app.route("/admin/toggle-new-batch", methods=["POST"])
+@admin_required
+def toggle_new_batch():
+    """Show / hide the 24 new-batch (Started 20 Oct) villages on all dashboards.
+    When hidden, they're removed from the state entirely — same as if they
+    weren't in the portal yet."""
+    s = load_settings()
+    s["show_new_batch_villages"] = (request.form.get("show") == "yes")
+    save_settings(s)
+    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+        try:
+            commit_to_github(SETTINGS_FILE, "data/portal_settings.json",
+                             "admin: {} new-batch (Started 20 Oct) villages".format(
+                                 "show" if s["show_new_batch_villages"] else "hide"))
+        except Exception:
+            pass
+    # Mirror reflects the dashboard content, so refresh it on this change.
+    _publish_mirror_quietly()
+    return redirect(url_for("admin_home"))
 
 
 @app.route("/admin/toggle-pending-tehsil", methods=["POST"])
