@@ -133,6 +133,9 @@
 
     .first-bucket-row { background: #fff4e3; }
     .first-bucket-badge { color: #c66300; font-weight: 400; font-size: 11px; margin-left: 6px; font-style: italic; }
+    .new-batch-badge { color: #1e5fa0; font-weight: 600; font-size: 10.5px; margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #e8f0fe; border: 1px solid #b3cdf0; letter-spacing: 0.2px; vertical-align: middle; }
+    tr.new-batch-row td { background: #fafbff; }
+    .new-batch-cell { color: #1e5fa0 !important; background: #e8f0fe !important; font-weight: 600; font-size: 11px; font-style: italic; }
 
     .view { display: none; }
     .view.active { display: block; }
@@ -238,18 +241,18 @@
 
   {# ============== TABS ============== #}
   <div class="view-tabs" id="viewTabs">
-    <button class="view-tab" id="tabProgress" onclick="switchTab('progress')">
+    <button class="view-tab active" id="tabProgress" onclick="switchTab('progress')">
       <span class="tab-icon">📊</span>
       <span>Tehsil-wise Progress<span class="tab-sub">All villages · targets vs enrollment</span></span>
     </button>
-    <button class="view-tab active" id="tabCD" onclick="switchTab('cd')">
+    <button class="view-tab" id="tabCD" onclick="switchTab('cd')">
       <span class="tab-icon">👥</span>
       <span>Camp Director Progress<span class="tab-sub">59 villages · by assigned director</span></span>
     </button>
   </div>
 
   {# ============== VIEW: TEHSIL (L1) ============== #}
-  <div id="viewTehsil" class="view">
+  <div id="viewTehsil" class="view active">
     <div class="panel">
       <div class="panel-header">
         <h2>Tehsil-wise Progress <small style="color:#888;font-weight:400;font-size:12px;margin-left:6px">Click a row to see villages</small></h2>
@@ -315,7 +318,7 @@
   </div>
 
   {# ============== VIEW: CD TEHSIL (L1) ============== #}
-  <div id="viewCDTehsil" class="view active">
+  <div id="viewCDTehsil" class="view">
     <div class="panel">
       <div class="panel-header">
         <h2>Camp Director Progress — Tehsil-wise <small style="color:#888;font-weight:400;font-size:12px;margin-left:6px">59 non-first-bucket villages</small></h2>
@@ -515,22 +518,41 @@ function renderVillages(tehsilName){
   var body='',totAR=0,totPend=0;
   for(var j=0;j<vs.length;j++){
     var v=vs[j]; var since=v.issued-(v.issuedBaseline||0); var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
-    var pend=v.pending||0; if(!v.firstBucket) totPend+=pend;
-    var rowCls=v.firstBucket?' class="first-bucket-row"':'';
-    var badge=v.firstBucket?' <em class="first-bucket-badge">1st Bucket</em>':'';
-    var pendCell=v.firstBucket
-      ? '<td class="num pending-col pending-col-tehsil pending-first-bucket">1st Bucket</td>'
-      : '<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>';
+    var pend=v.pending||0; if(!v.firstBucket && !v.newBatch) totPend+=pend;
+    var rowCls=v.firstBucket?' class="first-bucket-row"':(v.newBatch?' class="new-batch-row"':'');
+    var badge=v.firstBucket
+      ? ' <em class="first-bucket-badge">1st Bucket</em>'
+      : (v.newBatch ? ' <em class="new-batch-badge">Started 20 Oct</em>' : '');
+    var pendCell;
+    if(v.firstBucket){
+      pendCell='<td class="num pending-col pending-col-tehsil pending-first-bucket">1st Bucket</td>';
+    } else if(v.newBatch){
+      pendCell='<td class="num pending-col pending-col-tehsil new-batch-cell">Started 20 Oct</td>';
+    } else {
+      pendCell='<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>';
+    }
+    // New-batch villages have no data yet — show "Started 20 Oct" instead of 0s.
+    var tgtCell, issCell, sinceCell, arCell, issPct, apr, aprPct;
+    if(v.newBatch){
+      tgtCell  = '<td class="num new-batch-cell">Started 20 Oct</td>';
+      issCell  = '<td class="num new-batch-cell">Started 20 Oct</td>';
+      sinceCell= '<td class="num new-batch-cell">Started 20 Oct</td>';
+      arCell   = '<td class="num new-batch-cell">Started 20 Oct</td>';
+      issPct   = '<td class="new-batch-cell" style="text-align:center">—</td>';
+      apr      = '<td class="num new-batch-cell">Started 20 Oct</td>';
+      aprPct   = '<td class="new-batch-cell" style="text-align:center">—</td>';
+    } else {
+      tgtCell  = '<td class="num">'+v.target.toLocaleString()+'</td>';
+      issCell  = '<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>';
+      sinceCell= '<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>';
+      arCell   = '<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>';
+      issPct   = '<td>'+pctBar(v.issued,v.target)+'</td>';
+      apr      = '<td class="num">'+v.approved.toLocaleString()+'</td>';
+      aprPct   = '<td>'+pctBar(v.approved,v.issued)+'</td>';
+    }
     body+='<tr'+rowCls+'><td>'+(j+1)+'</td>'
         +'<td><strong>'+esc(v.village)+'</strong>'+badge+'</td>'
-        +'<td class="num">'+v.target.toLocaleString()+'</td>'
-        +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
-        +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
-        +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
-        +pendCell
-        +'<td>'+pctBar(v.issued,v.target)+'</td>'
-        +'<td class="num">'+v.approved.toLocaleString()+'</td>'
-        +'<td>'+pctBar(v.approved,v.issued)+'</td></tr>';
+        +tgtCell+issCell+sinceCell+arCell+pendCell+issPct+apr+aprPct+'</tr>';
   }
   var tIB=vs.reduce(function(s,v){return s+(v.issuedBaseline||0);},0); var tS=t.issued-tIB;
   document.querySelector('#villageTable tbody').innerHTML=body;
@@ -760,8 +782,8 @@ function rerender(){
   if(document.getElementById('viewCDVillages').classList.contains('active')){ var bc=document.getElementById('cdVilBreadcrumb').textContent; if(bc&&bc.indexOf(' › ')>=0){ var p=bc.split(' › '); var tn=p[0].trim(), dn=p[1].trim(); for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tn) for(var j=0;j<DATA.tehsils[i].villages.length;j++){ var cd=DATA.tehsils[i].villages[j].campDirector; if(cd&&cd.n===dn){ renderCDVillages(tn,cdNormName(cd.n)); return; } } } }
 }
 
-// Camp Director Progress is the default open tab.
-renderCDTehsils();
+// Tehsil-wise Progress is the default open tab (v24+).
+renderTehsils();
 </script>
 </body>
 </html>
