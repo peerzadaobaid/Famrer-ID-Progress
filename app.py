@@ -650,6 +650,7 @@ def load_settings():
         "show_pending_entries": False,         # master toggle — governs CD views
         "show_pending_entries_tehsil": False,  # extra flag — tehsil & village views only show pending when both this and the master are on
         "show_new_batch_villages": False,      # v27 — hide the 24 "Started 20 Oct" villages everywhere until enrollment data starts
+        "new_batch_start_label": "20 Oct",     # v28 — label shown in the "Started …" badge for new-batch villages; admin can edit
     }
     if not os.path.exists(SETTINGS_FILE):
         return defaults
@@ -1200,6 +1201,7 @@ def build_nested_structure(skip_pending=False):
         },
         "settings": _effective_settings(),
         "pendingDisabled": not PENDING_SHEET_ENABLED,
+        "newBatchStartLabel": _settings_for_filter.get("new_batch_start_label", NEW_BATCH_START_LABEL),
     }
 
 
@@ -1264,10 +1266,12 @@ def logout():
 @app.route("/admin")
 @admin_required
 def admin_home():
-    return render_template("admin.html", settings=load_settings(),
+    _s = load_settings()
+    return render_template("admin.html", settings=_s,
                            mirror_url=_mirror_pages_url(),
                            pending_disabled=not PENDING_SHEET_ENABLED,
-                           new_batch_count=len(NEW_BATCH_VILLAGE_KEYS))
+                           new_batch_count=len(NEW_BATCH_VILLAGE_KEYS),
+                           new_batch_label=_s.get("new_batch_start_label", NEW_BATCH_START_LABEL))
 
 
 @app.route("/admin/toggle-pending", methods=["POST"])
@@ -1310,7 +1314,7 @@ def _publish_mirror_quietly():
 @app.route("/admin/toggle-new-batch", methods=["POST"])
 @admin_required
 def toggle_new_batch():
-    """Show / hide the 24 new-batch (Started 20 Oct) villages on all dashboards.
+    """Show / hide the 24 new-batch villages on all dashboards.
     When hidden, they're removed from the state entirely — same as if they
     weren't in the portal yet."""
     s = load_settings()
@@ -1319,11 +1323,49 @@ def toggle_new_batch():
     if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
         try:
             commit_to_github(SETTINGS_FILE, "data/portal_settings.json",
-                             "admin: {} new-batch (Started 20 Oct) villages".format(
+                             "admin: {} new-batch villages".format(
                                  "show" if s["show_new_batch_villages"] else "hide"))
         except Exception:
             pass
     # Mirror reflects the dashboard content, so refresh it on this change.
+    _publish_mirror_quietly()
+    return redirect(url_for("admin_home"))
+
+
+@app.route("/admin/new-batch-date", methods=["POST"])
+@admin_required
+def set_new_batch_date():
+    """Update the 'Started <date>' label shown on the new-batch villages' badge.
+    Admin types a short label (dd-mm-yyyy, '20 Oct', '20 Oct 2026', etc.) —
+    whatever they enter is used as-is in the badge."""
+    raw = (request.form.get("label") or "").strip()
+    # Accept any short free-text label; cap length to prevent silly values.
+    if not raw:
+        return redirect(url_for("admin_home"))
+    label = raw[:40]
+    # If it looks like YYYY-MM-DD or dd-mm-yyyy, pretty-print it as "20 Oct 2026".
+    import re as _re
+    m = _re.match(r"^(\d{4})-(\d{2})-(\d{2})$", label)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    else:
+        m = _re.match(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$", label)
+        if m:
+            d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        else:
+            d = mo = y = None
+    if d and mo and y and 1 <= mo <= 12 and 1 <= d <= 31:
+        months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        label = "{} {} {}".format(d, months[mo-1], y)
+    s = load_settings()
+    s["new_batch_start_label"] = label
+    save_settings(s)
+    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+        try:
+            commit_to_github(SETTINGS_FILE, "data/portal_settings.json",
+                             "admin: new-batch start label = {}".format(label))
+        except Exception:
+            pass
     _publish_mirror_quietly()
     return redirect(url_for("admin_home"))
 
