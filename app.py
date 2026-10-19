@@ -173,6 +173,32 @@ DEFAULT_TARGETS = [
     ("Tulail", "Saradaab", 459),
     ("Tulail", "Wazirthal", 116),
     ("Tulail", "Zedgey", 132),
+    # v24 — 24 additional villages to complete district coverage (124 total).
+    # Target set to 0 as placeholder; set real values via the Set Targets admin page.
+    ("Ajas",       "Noorabad Ajas",         0),
+    ("Aloosa",     "Aloosa",                0),
+    ("Aloosa",     "Kehnoosa",              0),
+    ("Aloosa",     "Malangam",              0),
+    ("Aloosa",     "Quil Muqam",            0),
+    ("Bandipora",  "Ajar",                  0),
+    ("Bandipora",  "Arindardpora",          0),
+    ("Bandipora",  "Bandipora",             0),
+    ("Bandipora",  "Bonakoot",              0),
+    ("Bandipora",  "Chittibanday",          0),
+    ("Bandipora",  "Kaloosa Nathpora",      0),
+    ("Bandipora",  "Konan Babagund",        0),
+    ("Bandipora",  "Madder",                0),
+    ("Bandipora",  "Mantrigam",             0),
+    ("Bandipora",  "Qazipora Putushai",     0),
+    ("Bandipora",  "Sumlarshokbaba",        0),
+    ("Hajin",      "Baharabad",             0),
+    ("Hajin",      "Chandergeern",          0),
+    ("Hajin",      "Hajin",                 0),
+    ("Hajin",      "Naidkhai",              0),
+    ("Hajin",      "Rakh-I-Malgam",         0),
+    ("Hajin",      "Sadunara",              0),
+    ("Hajin",      "Shah Gund",             0),
+    ("Sumbal",     "Rkhi Asham",            0),
 ]
 
 TEHSIL_REFERENCE = {
@@ -221,6 +247,21 @@ VILLAGE_ALIAS = {
     "DENGITHAL":            "DANGITHAL",
     "ZEDGEY":               "ZEDGAY",
     "BARNAIE":              "BARNAYEE",
+    # v24 — spelling mismatches between the district landholder list and the portal.
+    # Keys = normalized incoming spelling; values = portal's canonical spelling.
+    "CHECK RESHIPORA":           "CHAK RESHIPORA",
+    "CHECKI ARSALAKHAN":         "CHAK ARSALA KHAN",
+    "GAMAROO":                   "GAMROO",
+    "GUND QASIER":               "GUNDI QASIER",
+    "GUNDI RAMZAN":              "GUND I RAMZAN",
+    "GUNDI SADERKOTE SADUNARA":  "GUND SADERKOOT",
+    "MALIKPORA":                 "MALIK PORA",
+    "RAKH I SULTANPORA":         "RAKHI SULTANPORA",
+    "SARAI DANGERPORA":          "SARIE DANGERPORA",
+    "SHADIPORA":                 "SHADI PORA",
+    "ZALPORA":                   "ZAL PORA",
+    "MANZGUND":                  "MANZ GUND",
+    "PURANA TULAIL":             "PURANATULAIL",
 }
 
 FIRST_BUCKET_VILLAGE_KEYS = {
