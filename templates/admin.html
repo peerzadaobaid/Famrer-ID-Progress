@@ -104,12 +104,14 @@
     <p style="color:#556;font-size:13.5px;margin-bottom:14px">
       These are the villages added to the portal to complete district coverage (124 total). They haven't started AGRISTACK farmer-ID generation yet. Keep them hidden until generation begins — flip the toggle once they're ready to be shown on every dashboard. Applies to the admin dashboard, tehsil / village views, and the public mirror.
     </p>
+
+    <!-- SHOW / HIDE TOGGLE -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:{{ '#e8f0fe' if settings.show_new_batch_villages else '#f6f8fb' }};border:1px solid {{ '#b3cdf0' if settings.show_new_batch_villages else '#c7d6ea' }};border-radius:8px">
       <div>
-        <div style="font-weight:700;color:#1e5fa0;font-size:14px">🟦 {{ new_batch_count }} new-batch villages (Started 20 Oct)</div>
+        <div style="font-weight:700;color:#1e5fa0;font-size:14px">🟦 {{ new_batch_count }} new-batch villages (Started {{ new_batch_label }})</div>
         <div style="color:#556;font-size:12px;margin-top:2px">
           {% if settings.show_new_batch_villages %}
-            <b>Currently visible</b> on every dashboard with a <i>"Started 20 Oct"</i> badge next to the village name. Numeric cells show 0 until data is uploaded.
+            <b>Currently visible</b> on every dashboard with a <i>"Started {{ new_batch_label }}"</i> badge next to the village name. Numeric cells show 0 until data is uploaded.
           {% else %}
             <b>Currently hidden</b> — the portal shows 100 villages instead of 124. Flip to show once AGRISTACK generation begins for them.
           {% endif %}
@@ -121,6 +123,22 @@
           {% if settings.show_new_batch_villages %}Hide these villages{% else %}Show these villages{% endif %}
         </button>
       </form>
+    </div>
+
+    <!-- EDITABLE START DATE -->
+    <div style="margin-top:10px;padding:14px 16px;background:#f6f8fb;border:1px solid #c7d6ea;border-radius:8px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between">
+        <div style="min-width:0;flex:1 1 300px">
+          <div style="font-weight:700;color:#1a3a5c;font-size:13.5px">📅 Start date on the badge</div>
+          <div style="color:#556;font-size:12px;margin-top:3px">
+            The badge currently reads <b>"Started {{ new_batch_label }}"</b>. Enter the actual date on which generation began — type a date like <code>20-10-2026</code> or free-text like <code>20 Oct 2026</code>; dd-mm-yyyy / yyyy-mm-dd get auto-formatted to "20 Oct 2026".
+          </div>
+        </div>
+        <form method="POST" action="{{ url_for('set_new_batch_date') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="text" name="label" value="{{ new_batch_label }}" placeholder="20-10-2026 or 20 Oct 2026" maxlength="40" style="padding:8px 10px;border:1px solid #c7d6ea;border-radius:6px;font-size:13px;min-width:200px;background:#fff;color:#1a3a5c;font-family:inherit" required>
+          <button type="submit" class="submit" style="padding:9px 16px">Save date</button>
+        </form>
+      </div>
     </div>
   </div>
 
