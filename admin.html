@@ -1,0 +1,169 @@
+{% from "_base_styles.html" import base_styles, site_footer %}
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Farmer ID Progress</title>
+{{ base_styles() }}
+</head><body>
+<div class="header"><div class="header-inner">
+  <div><h1>Admin</h1><div class="sub">Portal management actions. All edits commit to GitHub and auto-redeploy.</div></div>
+  <div class="nav">
+    <a href="{{ url_for('dashboard') }}">← Dashboard</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</div></div>
+<div class="container">
+  {% if request.args.get('mirror') == 'ok' %}
+    <div class="ok">✓ {{ request.args.get('msg', 'Mirror refreshed.') }} The public mirror will reflect new data in ~30 s (GitHub Pages' propagation delay).</div>
+  {% elif request.args.get('mirror') == 'err' %}
+    <div class="err">⚠ {{ request.args.get('msg', 'Mirror refresh failed.') }}</div>
+  {% endif %}
+
+  {% if pending_disabled %}
+    <div style="background:#eef5fb;border:1px solid #c7d6ea;color:#1a3a5c;padding:12px 14px;border-radius:6px;margin-bottom:16px;font-size:13px">
+      <b>ℹ Google Sheet integration is turned off.</b> The portal makes zero calls to Google — no cold-start delays, no 15-second timeouts. Pending Entries column is hidden on all dashboards and the Reconciliation page is disabled. To re-enable, set <code>PENDING_SHEET_ENABLED = True</code> in <code>app.py</code> and redeploy.
+    </div>
+  {% endif %}
+
+  <div class="admin-tiles">
+    <a href="{{ url_for('upload') }}" class="admin-tile">
+      <span class="icon">⬆</span>
+      <div class="title">Upload Daily CSV</div>
+      <div class="desc">Upload today's AGRISTACK snapshot and tag it with a date.</div>
+    </a>
+    <a href="{{ url_for('edit_targets') }}" class="admin-tile">
+      <span class="icon">🎯</span>
+      <div class="title">Set / Change Targets</div>
+      <div class="desc">Edit per-village farmer-ID targets.</div>
+    </a>
+    <a href="{{ url_for('edit_camp_directors') }}" class="admin-tile">
+      <span class="icon">👥</span>
+      <div class="title">Camp Directors</div>
+      <div class="desc">Change the camp director (name &amp; phone) assigned to any of the 59 villages.</div>
+    </a>
+    {% if not pending_disabled %}
+    <a href="{{ url_for('reconciliation') }}" class="admin-tile">
+      <span class="icon">🔗</span>
+      <div class="title">Reconciliation Data</div>
+      <div class="desc">Tehsil-wise view of every row the Google Sheet contributes. Fix village spelling mismatches via dropdown so Pending Entries lines up with the portal.</div>
+    </a>
+    {% endif %}
+  </div>
+
+  {% if not pending_disabled %}
+  <div class="card" style="margin-top:20px">
+    <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Dashboard columns</h2>
+    <p style="color:#556;font-size:13.5px;margin-bottom:14px">Toggle optional columns on or off for everyone viewing the dashboard. Settings are saved to GitHub and take effect after Render redeploys (~1 min).</p>
+
+    <!-- MASTER TOGGLE: Pending Entries column (camp-director views) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fef2f2;border:1px solid #f0a0a0;border-radius:8px">
+      <div>
+        <div style="font-weight:700;color:#a63434;font-size:14px">📋 Pending Entries column — Camp Director views</div>
+        <div style="color:#7a3434;font-size:12px;margin-top:2px">
+          {% if settings.show_pending_entries %}
+            <b>Currently visible</b> on Camp Director Progress &amp; Camp Director Villages. Pending = <code>Portal Target − Generated − Not Generated</code>.
+          {% else %}
+            <b>Currently hidden</b> — turn on first; the tehsil-view toggle below only takes effect when this one is on.
+          {% endif %}
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('toggle_pending') }}">
+        <input type="hidden" name="show" value="{{ 'no' if settings.show_pending_entries else 'yes' }}">
+        <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#a63434' if settings.show_pending_entries else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
+          {% if settings.show_pending_entries %}Hide column{% else %}Show column{% endif %}
+        </button>
+      </form>
+    </div>
+
+    <!-- SECONDARY TOGGLE: Pending column on tehsil & village views -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fff8ee;border:1px solid #e8c48a;border-radius:8px;margin-top:10px;{% if not settings.show_pending_entries %}opacity:0.65{% endif %}">
+      <div>
+        <div style="font-weight:700;color:#8a5a00;font-size:14px">📋 Pending Entries column — Tehsil &amp; Village views</div>
+        <div style="color:#7a5820;font-size:12px;margin-top:2px">
+          {% if settings.show_pending_entries and settings.show_pending_entries_tehsil %}
+            <b>Currently visible</b> on tehsil-wise and village drill-down. First-bucket villages show "1st Bucket" instead of a number.
+          {% elif settings.show_pending_entries_tehsil and not settings.show_pending_entries %}
+            Toggle is <b>ON</b> but will stay hidden until the master toggle above is also on.
+          {% else %}
+            <b>Currently hidden</b> — only takes effect when the master Pending toggle above is also on.
+          {% endif %}
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('toggle_pending_tehsil') }}">
+        <input type="hidden" name="show" value="{{ 'no' if settings.show_pending_entries_tehsil else 'yes' }}">
+        <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#8a5a00' if settings.show_pending_entries_tehsil else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
+          {% if settings.show_pending_entries_tehsil %}Hide on tehsil view{% else %}Show on tehsil view{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}  {# /pending_disabled gate on Dashboard columns card #}
+
+  <div class="card" style="margin-top:20px">
+    <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Newly added villages ({{ new_batch_count }})</h2>
+    <p style="color:#556;font-size:13.5px;margin-bottom:14px">
+      These are the villages added to the portal to complete district coverage (124 total). They haven't started AGRISTACK farmer-ID generation yet. Keep them hidden until generation begins — flip the toggle once they're ready to be shown on every dashboard. Applies to the admin dashboard, tehsil / village views, and the public mirror.
+    </p>
+
+    <!-- SHOW / HIDE TOGGLE -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:{{ '#e8f0fe' if settings.show_new_batch_villages else '#f6f8fb' }};border:1px solid {{ '#b3cdf0' if settings.show_new_batch_villages else '#c7d6ea' }};border-radius:8px">
+      <div>
+        <div style="font-weight:700;color:#1e5fa0;font-size:14px">🟦 {{ new_batch_count }} new-batch villages (Started {{ new_batch_label }})</div>
+        <div style="color:#556;font-size:12px;margin-top:2px">
+          {% if settings.show_new_batch_villages %}
+            <b>Currently visible</b> on every dashboard with a <i>"Started {{ new_batch_label }}"</i> badge next to the village name. Numeric cells show 0 until data is uploaded.
+          {% else %}
+            <b>Currently hidden</b> — the portal shows 100 villages instead of 124. Flip to show once AGRISTACK generation begins for them.
+          {% endif %}
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('toggle_new_batch') }}">
+        <input type="hidden" name="show" value="{{ 'no' if settings.show_new_batch_villages else 'yes' }}">
+        <button type="submit" class="submit" style="padding:9px 18px;background:{{ '#1e5fa0' if settings.show_new_batch_villages else 'linear-gradient(135deg, #1a3a5c 0%, #305496 100%)' }}">
+          {% if settings.show_new_batch_villages %}Hide these villages{% else %}Show these villages{% endif %}
+        </button>
+      </form>
+    </div>
+
+    <!-- EDITABLE START DATE -->
+    <div style="margin-top:10px;padding:14px 16px;background:#f6f8fb;border:1px solid #c7d6ea;border-radius:8px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between">
+        <div style="min-width:0;flex:1 1 300px">
+          <div style="font-weight:700;color:#1a3a5c;font-size:13.5px">📅 Start date on the badge</div>
+          <div style="color:#556;font-size:12px;margin-top:3px">
+            The badge currently reads <b>"Started {{ new_batch_label }}"</b>. Enter the actual date on which generation began — type a date like <code>20-10-2026</code> or free-text like <code>20 Oct 2026</code>; dd-mm-yyyy / yyyy-mm-dd get auto-formatted to "20 Oct 2026".
+          </div>
+        </div>
+        <form method="POST" action="{{ url_for('set_new_batch_date') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="text" name="label" value="{{ new_batch_label }}" placeholder="20-10-2026 or 20 Oct 2026" maxlength="40" style="padding:8px 10px;border:1px solid #c7d6ea;border-radius:6px;font-size:13px;min-width:200px;background:#fff;color:#1a3a5c;font-family:inherit" required>
+          <button type="submit" class="submit" style="padding:9px 16px">Save date</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2 style="font-size:16px;margin-bottom:8px;color:#1a3a5c">Public mirror site</h2>
+    <p style="color:#556;font-size:13.5px;margin-bottom:14px">A read-only static snapshot of the dashboard, served from GitHub Pages. Scales to any number of viewers with no cold starts — share this URL instead of the Render URL for public viewing. Pending Entries column is intentionally hidden on the mirror. Auto-refreshes whenever a CSV is uploaded or targets / camp directors are edited.</p>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;background:#eef5fb;border:1px solid #c7d6ea;border-radius:8px">
+      <div style="min-width:0;flex:1 1 320px">
+        <div style="font-weight:700;color:#1a3a5c;font-size:14px">🌐 Mirror URL</div>
+        <div style="color:#556;font-size:12px;margin-top:4px;word-break:break-all">
+          {% if mirror_url %}
+            <a href="{{ mirror_url }}" target="_blank" rel="noopener" style="color:#305496;font-weight:600">{{ mirror_url }}</a>
+          {% else %}
+            <i>GH_REPO env var not set — mirror URL unknown.</i>
+          {% endif %}
+        </div>
+        <div style="color:#7a8899;font-size:11.5px;margin-top:6px">
+          First-time setup: open your repo's <b>Settings → Pages</b> on GitHub, set <b>Source: Deploy from a branch</b>, <b>Branch: main</b>, <b>Folder: /docs</b>, click Save. Pages takes ~1 minute the first time; after that each refresh is near-instant.
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('publish_mirror_route') }}">
+        <button type="submit" class="submit" style="padding:9px 18px">Refresh mirror now</button>
+      </form>
+    </div>
+  </div>
+</div>
+{{ site_footer() }}
+</body></html>
