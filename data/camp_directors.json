@@ -35,6 +35,12 @@
     "t": "BANDIPORA",
     "v": "BHUTTO"
   },
+  "BANDIPORA||GAMROO": {
+    "n": "Gulzar Ahmad Khan",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "GAMROO"
+  },
   "BANDIPORA||GUND DACHINA": {
     "n": "Mr Parvaiz Ahmad Reshi",
     "p": "7788932598",
@@ -58,6 +64,12 @@
     "p": "7006051991",
     "t": "BANDIPORA",
     "v": "LAWAYPORA"
+  },
+  "BANDIPORA||LOWDARA": {
+    "n": "Gulzar Ahmad Khan",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "LOWDARA"
   },
   "BANDIPORA||NASSU": {
     "n": "Mr Shabir Ahmad Ganie",
@@ -106,6 +118,12 @@
     "p": "7889818735",
     "t": "HAJIN",
     "v": "Gund saderkoot"
+  },
+  "HAJIN||GUNDI BOON": {
+    "n": "Mr Aejaz Ahmad Wani",
+    "p": "7889818735",
+    "t": "HAJIN",
+    "v": "GUNDI BOON"
   },
   "HAJIN||KOSUMBAGH": {
     "n": "NA",
