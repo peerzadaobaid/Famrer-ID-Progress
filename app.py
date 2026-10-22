@@ -998,7 +998,29 @@ def camp_director_for(tehsil, village):
     return effective_camp_directors().get(norm_key(tehsil, village))
 
 
+# v29 — in-memory cache for build_nested_structure so concurrent dashboard
+# loads don't re-parse every CSV / recompute every tehsil roll-up on each hit.
+# Keyed by skip_pending (True for mirror build, False for live dashboard). On
+# any admin write that changes dashboard content, we call
+# _invalidate_dashboard_cache() so the next visitor gets fresh numbers.
+_dashboard_cache = {}           # {skip_pending: (ts, state_dict)}
+DASHBOARD_CACHE_SECONDS = 30
+
+def _invalidate_dashboard_cache():
+    _dashboard_cache.clear()
+
 def build_nested_structure(skip_pending=False):
+    import time
+    now = time.time()
+    hit = _dashboard_cache.get(skip_pending)
+    if hit and (now - hit[0]) < DASHBOARD_CACHE_SECONDS:
+        return hit[1]
+    state = _build_nested_structure_fresh(skip_pending=skip_pending)
+    _dashboard_cache[skip_pending] = (now, state)
+    return state
+
+
+def _build_nested_structure_fresh(skip_pending=False):
     cumulative, per_date, sorted_dates, errors = build_state()
 
     # Pending Entries pulled from the published Google Sheet (cached).
@@ -1287,6 +1309,7 @@ def toggle_pending():
                                  "show" if s["show_pending_entries"] else "hide"))
         except Exception:
             pass
+    _invalidate_dashboard_cache()
     return redirect(url_for("admin_home"))
 
 
@@ -1303,8 +1326,11 @@ def publish_mirror_route():
 
 
 def _publish_mirror_quietly():
-    """Called after each admin write-path. Swallows failures — the write
-    that triggered it has already succeeded; the mirror catches up next time."""
+    """Called after each admin write-path. Clears the dashboard in-memory
+    cache first (so the next visitor gets fresh numbers) and then regenerates
+    the mirror. Swallows failures — the write that triggered it has already
+    succeeded; the mirror catches up next time."""
+    _invalidate_dashboard_cache()
     try:
         publish_mirror()
     except Exception:
@@ -1383,6 +1409,7 @@ def toggle_pending_tehsil():
                                  "show" if s["show_pending_entries_tehsil"] else "hide"))
         except Exception:
             pass
+    _invalidate_dashboard_cache()
     return redirect(url_for("admin_home"))
 
 
@@ -1433,6 +1460,7 @@ def reconciliation():
             saved = True
         # Blow the pending cache so the next fetch re-resolves with the new overrides.
         _pending_cache.update({"ts": 0, "map": {}, "sheet_rows": [], "sheet_by_tehsil": {}})
+        _invalidate_dashboard_cache()
 
     # Force a fresh fetch so admin always sees the latest sheet.
     pending_map = fetch_pending_entries(force=True)
