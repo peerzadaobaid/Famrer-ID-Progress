@@ -467,8 +467,15 @@ function cdNormName(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9\s]/
 /* ---------- RENDER: TEHSIL L1 ---------- */
 function renderTehsils(){
   var body='',totAR=0,totPend=0;
-  for(var i=0;i<DATA.tehsils.length;i++){
-    var t=DATA.tehsils[i]; var since=t.issued-(t.issuedBaseline||0); var ar=tehsilAddInRange(t,addFrom,addTo); totAR+=ar;
+  // v30 — sort tehsils by issue % desc so the best-performing tehsil appears
+  // at the top. Tehsils with target=0 drop to the bottom.
+  var tehsils = DATA.tehsils.slice().sort(function(a,b){
+    var pa = a.target>0 ? a.issued/a.target : -1;
+    var pb = b.target>0 ? b.issued/b.target : -1;
+    return pb - pa;
+  });
+  for(var i=0;i<tehsils.length;i++){
+    var t=tehsils[i]; var since=t.issued-(t.issuedBaseline||0); var ar=tehsilAddInRange(t,addFrom,addTo); totAR+=ar;
     var pend=t.pending||0; totPend+=pend;
     var safe=t.tehsil.replace(/'/g,"\\'");
     body+='<tr class="clickable" onclick="showVillages(\''+safe+'\')">'
