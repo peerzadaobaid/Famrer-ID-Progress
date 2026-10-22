@@ -134,6 +134,9 @@
     .first-bucket-row { background: #fff4e3; }
     .first-bucket-badge { color: #c66300; font-weight: 400; font-size: 11px; margin-left: 6px; font-style: italic; }
     .new-batch-badge { color: #1e5fa0; font-weight: 600; font-size: 10.5px; margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #e8f0fe; border: 1px solid #b3cdf0; letter-spacing: 0.2px; vertical-align: middle; }
+    /* v31 — circular percentage badge for the tehsil view's Issue % / Approval % columns */
+    .pct-circle { display: inline-flex; align-items: center; justify-content: center; }
+    .pct-circle svg { display: block; }
 
     .view { display: none; }
     .view.active { display: block; }
@@ -263,7 +266,6 @@
               <th>#</th>
               <th>Tehsil</th>
               <th class="num" style="white-space:normal;max-width:70px">Total Villages</th>
-              <th class="num" style="white-space:normal;max-width:80px">Villages Bucketed</th>
               <th class="num" style="white-space:normal;max-width:120px">Target</th>
               <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
               <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
@@ -456,6 +458,27 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){retu
 function pctClass(p){ return p===0?'pct-zero':p<30?'pct-low':p<70?'pct-medium':'pct-good'; }
 var FIXED={blue:'#1e88e5',orange:'#f57c00',green:'#43a047'};
 function pctBar(num,den,color){ var p=den>0?Math.round(num/den*100):0; var cls=color?'pct-fixed-'+color:pctClass(p); var ts=color&&FIXED[color]?' style="color:'+FIXED[color]+';font-weight:600"':''; var w=Math.min(p,100); return '<span class="progress"><span class="progress-fill '+cls+'" style="width:'+w+'%"></span></span><span class="pct-value"'+ts+'>'+p+'%</span>'; }
+// v31 — SVG circular (donut) percentage badge. Used on the tehsil view where
+// the user wants the % to read big and visual at a glance.
+function pctCircle(num,den,color){
+  var p = den>0 ? Math.round(num/den*100) : 0;
+  var pClamped = Math.max(0, Math.min(100, p));
+  var r = 20, cx = 24, cy = 24, c = 2 * Math.PI * r; // 48x48
+  var dashLen = c * pClamped / 100;
+  var stroke = (color && FIXED[color]) ? FIXED[color]
+             : (p===0 ? '#c7c7c7' : p<30 ? '#d84a4a' : p<70 ? '#f0a000' : '#2a9f3f');
+  var track  = '#e5ebf3';
+  return '<div class="pct-circle" title="'+num+' of '+den+' = '+p+'%">'
+    + '<svg width="52" height="52" viewBox="0 0 48 48">'
+    +   '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+track+'" stroke-width="5"/>'
+    +   '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+stroke+'" stroke-width="5" '
+    +     'stroke-dasharray="'+dashLen.toFixed(2)+' '+c.toFixed(2)+'" '
+    +     'transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round"/>'
+    +   '<text x="24" y="27" text-anchor="middle" dominant-baseline="middle" '
+    +     'font-size="13" font-weight="700" fill="'+stroke+'" font-family="-apple-system, Segoe UI, Roboto, sans-serif">'+p+'%</text>'
+    + '</svg>'
+    + '</div>';
+}
 
 function villageAddInRange(v,from,to){ var dc=v.datedCounts||{}; var n=0; for(var d in dc){ if(d>=from&&d<=to) n+=(dc[d].issued||0); } return n; }
 function tehsilAddInRange(t,from,to){ var n=0; for(var i=0;i<t.villages.length;i++) n+=villageAddInRange(t.villages[i],from,to); return n; }
@@ -482,32 +505,30 @@ function renderTehsils(){
         +'<td>'+(i+1)+'</td>'
         +'<td><strong>'+esc(t.tehsil)+'</strong></td>'
         +'<td class="num">'+(t.totalVillages||'—')+'</td>'
-        +'<td class="num">'+t.villagesBucketed+'</td>'
         +'<td class="num">'+t.target.toLocaleString()+'</td>'
         +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
         +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
         +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
-        +'<td>'+pctBar(t.issued,t.target,'orange')+'</td>'
+        +'<td style="text-align:center">'+pctCircle(t.issued,t.target)+'</td>'
         +'<td class="num">'+t.approved.toLocaleString()+'</td>'
-        +'<td>'+pctBar(t.approved,t.issued,'green')+'</td>'
+        +'<td style="text-align:center">'+pctCircle(t.approved,t.issued,'green')+'</td>'
         +'</tr>';
   }
-  var gT=0,gI=0,gA=0,gB=0,gVR=0,gVB=0;
-  for(var i=0;i<DATA.tehsils.length;i++){ var t=DATA.tehsils[i]; gT+=t.target;gI+=t.issued;gA+=t.approved;gB+=(t.issuedBaseline||0);gVR+=t.totalVillages||0;gVB+=t.villagesBucketed; }
+  var gT=0,gI=0,gA=0,gB=0,gVR=0;
+  for(var i=0;i<DATA.tehsils.length;i++){ var t=DATA.tehsils[i]; gT+=t.target;gI+=t.issued;gA+=t.approved;gB+=(t.issuedBaseline||0);gVR+=t.totalVillages||0; }
   var gS=gI-gB;
   document.querySelector('#tehsilTable tbody').innerHTML=body;
   document.querySelector('#tehsilTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+gVR.toLocaleString()+'</td>'
-    +'<td class="num">'+gVB.toLocaleString()+'</td>'
     +'<td class="num">'+gT.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
     +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
     +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
-    +'<td>'+pctBar(gI,gT,'orange')+'</td>'
+    +'<td style="text-align:center">'+pctCircle(gI,gT)+'</td>'
     +'<td class="num">'+gA.toLocaleString()+'</td>'
-    +'<td>'+pctBar(gA,gI,'green')+'</td>'
+    +'<td style="text-align:center">'+pctCircle(gA,gI,'green')+'</td>'
     +'</tr>';
   var h=document.getElementById('tehsilAddRangeHdr'); if(h) h.innerHTML='Additions between<br><small style="font-weight:400;color:#a86416">'+addRangeLabel()+'</small>';
 }
