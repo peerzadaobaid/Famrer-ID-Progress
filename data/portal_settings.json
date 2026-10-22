@@ -1,6 +1,6 @@
 {
   "new_batch_start_label": "20 Oct",
-  "show_new_batch_villages": false,
+  "show_new_batch_villages": true,
   "show_pending_entries": true,
   "show_pending_entries_tehsil": true
 }
