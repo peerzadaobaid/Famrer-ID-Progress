@@ -321,6 +321,14 @@ def norm_key(tehsil, village):
     canon_t = canonical_tehsil(tehsil) or norm_name(tehsil)
     canon_v = norm_name(village)
     canon_v = VILLAGE_ALIAS.get(canon_v, canon_v)
+    # v32 — admin-approved CSV-side spelling aliases. These merge e.g.
+    # "RAKH I ASHAM" (as it appears in some uploaded AGRISTACK CSVs) into
+    # the portal's canonical "RKHI ASHAM" so the dashboard shows one row,
+    # not two. Edited from Admin → CSV Village Reconciliation.
+    csv_aliases = _load_csv_village_aliases()
+    merge_key = canon_t + "||" + canon_v
+    if merge_key in csv_aliases:
+        canon_v = csv_aliases[merge_key]
     return canon_t + "||" + canon_v
 
 def is_first_bucket(village):
@@ -526,6 +534,39 @@ def per_day_additions(per_date, sorted_dates):
 TARGETS_OVERRIDE_FILE = os.path.join(DATA_DIR, "targets.json")
 CD_OVERRIDE_FILE      = os.path.join(DATA_DIR, "camp_directors.json")
 VILLAGE_MAPPING_FILE  = os.path.join(DATA_DIR, "village_mappings.json")
+CSV_ALIAS_FILE        = os.path.join(DATA_DIR, "csv_village_aliases.json")
+
+# v32 — mtime-cached loader for CSV-side village aliases. Called from
+# every norm_key() invocation (which runs many times per request), so we
+# avoid re-reading the JSON file by comparing mtime.
+_csv_alias_cache = {"mtime": -1, "data": {}}
+
+def _load_csv_village_aliases():
+    """Return {"TEHSIL_NORM||CSV_VILLAGE_NORM": "PORTAL_VILLAGE_NORM"}.
+    Admin-approved via the CSV Village Reconciliation page; merges a CSV-side
+    spelling into the portal's canonical village so uploaded data lands on the
+    right row instead of creating a duplicate."""
+    try:
+        if not os.path.exists(CSV_ALIAS_FILE):
+            _csv_alias_cache["mtime"] = -1
+            _csv_alias_cache["data"] = {}
+            return {}
+        mt = os.path.getmtime(CSV_ALIAS_FILE)
+        if mt != _csv_alias_cache["mtime"]:
+            with open(CSV_ALIAS_FILE, "r", encoding="utf-8") as f:
+                _csv_alias_cache["data"] = json.load(f) or {}
+            _csv_alias_cache["mtime"] = mt
+        return _csv_alias_cache["data"]
+    except Exception:
+        return {}
+
+def _save_csv_village_aliases(aliases):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(CSV_ALIAS_FILE, "w", encoding="utf-8") as f:
+        json.dump(aliases, f, indent=2, sort_keys=True)
+    # Bust the cache so next norm_key sees it immediately.
+    _csv_alias_cache["mtime"] = -1
+    _csv_alias_cache["data"] = {}
 
 def load_targets_overrides():
     """Return {norm_key: int}. Overrides merge on top of DEFAULT_TARGETS."""
@@ -1042,15 +1083,22 @@ def _build_nested_structure_fresh(skip_pending=False):
     for key, tgt in targets.items():
         rec = cumulative.get(key)
         if rec:
+            # v32 — prefer the portal's canonical display name (from targets /
+            # camp-director tables) over whatever spelling the CSV used. This
+            # matters when CSV reconciliation has merged "Rakh-i-Asham" into
+            # "Rkhi Asham" — we want the merged row to show the portal name.
+            portal_disp = display.get(key)
+            disp_t = portal_disp[0] if portal_disp else rec["tehsil"]
+            disp_v = portal_disp[1] if portal_disp else rec["village"]
             villages[key] = {
-                "tehsil": rec["tehsil"], "village": rec["village"], "target": tgt,
+                "tehsil": disp_t, "village": disp_v, "target": tgt,
                 "issued": rec["issued"], "approved": rec["approved"],
                 "issuedBaseline": BASELINE_THROUGH_SEP30.get(
                     rec["tehsil"] + "||" + rec["village"], [0, 0])[0],
                 "approvedBaseline": BASELINE_THROUGH_SEP30.get(
                     rec["tehsil"] + "||" + rec["village"], [0, 0])[1],
-                "firstBucket": is_first_bucket(rec["village"]),
-                "campDirector": camp_director_for(rec["tehsil"], rec["village"]),
+                "firstBucket": is_first_bucket(disp_v),
+                "campDirector": camp_director_for(disp_t, disp_v),
             }
         else:
             # Target with no data yet — baseline fallback with proper display names
@@ -1593,6 +1641,157 @@ def reconciliation():
                            columns_seen=_pending_cache.get("columns_seen", []),
                            rows_matched=_pending_cache.get("rows_matched", 0),
                            sheet_row_total=len(sheet_rows),
+                           error=error, saved=saved)
+
+
+# ---- CSV Village Reconciliation (admin) ---------------------------------
+# Surfaces every village that showed up in an uploaded AGRISTACK CSV but
+# didn't resolve to a known portal village (built-in or admin-added). Admin
+# picks the matching portal village from a dropdown; mapping persists to
+# data/csv_village_aliases.json and future uploads merge into the right row.
+
+def _portal_villages_in_tehsil(canon_t):
+    """Return a sorted list of {norm, display} for the portal's known
+    villages inside this tehsil (DEFAULT_TARGETS + overrides + CAMP_DIRECTORS_59)."""
+    seen = {}
+    def _add(disp):
+        n = norm_name(disp)
+        n = VILLAGE_ALIAS.get(n, n)
+        seen.setdefault(n, disp)
+    for t, v, _tg in effective_targets():
+        if (canonical_tehsil(t) or norm_name(t)) == canon_t:
+            _add(v)
+    for k, cd in effective_camp_directors().items():
+        if k.split("||", 1)[0] == canon_t:
+            _add(cd.get("v", ""))
+    rows = [{"norm": vn, "display": disp} for vn, disp in seen.items()]
+    rows.sort(key=lambda r: r["display"].upper())
+    return rows
+
+
+@app.route("/admin/csv-reconciliation", methods=["GET", "POST"])
+@admin_required
+def csv_reconciliation():
+    error = None
+    saved = False
+
+    if request.method == "POST":
+        new_aliases = {}
+        for key, val in request.form.items():
+            if not key.startswith("map::"):
+                continue
+            merge_key = key[len("map::"):]  # "TEHSIL||CSV_VILLAGE_NORM"
+            val = (val or "").strip()
+            if not val:
+                continue  # unmatched — don't persist
+            new_aliases[merge_key] = val
+        _save_csv_village_aliases(new_aliases)
+        if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+            try:
+                commit_to_github(CSV_ALIAS_FILE, "data/csv_village_aliases.json",
+                                 "admin: update CSV village aliases ({} merges)".format(len(new_aliases)))
+                saved = True
+            except Exception as e:
+                error = "Saved locally but GitHub push failed: {}".format(e)
+        else:
+            saved = True
+        _invalidate_dashboard_cache()
+        _publish_mirror_quietly()
+
+    # Build the set of CSV villages that currently don't map to a portal village.
+    # We need to look at the RAW CSV names, so we re-parse snapshots and index
+    # by (canon_tehsil, raw_norm_village) — then check whether that raw name
+    # (after existing aliases) resolves to a known portal norm_key.
+    portal_known = set()
+    for t, v, _tg in effective_targets():
+        portal_known.add(norm_key(t, v))
+    for k in effective_camp_directors().keys():
+        portal_known.add(k)
+    # Also treat NEW_BATCH_VILLAGE_KEYS as portal-known
+    portal_known |= set(NEW_BATCH_VILLAGE_KEYS)
+
+    existing_aliases = _load_csv_village_aliases()
+
+    # Collect raw (tehsil, village_display, village_norm_raw) tuples from each snapshot,
+    # along with aggregate totals so admin can see what's at stake.
+    raw_rows = {}  # merge_key -> {canon_t, csv_village, issued, approved}
+    for date, path in discover_snapshots():
+        try:
+            counts = parse_snapshot_csv(path)
+        except Exception:
+            continue
+        for key, rec in counts.items():
+            # key already has aliases applied; we need to reconstruct the raw key
+            # as the CSV spelled it, so re-normalize here.
+            canon_t = canonical_tehsil(rec["tehsil"]) or norm_name(rec["tehsil"])
+            raw_v_norm = norm_name(rec["village"])
+            raw_v_norm = VILLAGE_ALIAS.get(raw_v_norm, raw_v_norm)
+            merge_key = canon_t + "||" + raw_v_norm
+            portal_key = key  # norm_key already applied, including CSV aliases
+
+            # If this CSV spelling already resolves to a known portal village
+            # (either via VILLAGE_ALIAS, admin alias, or because it IS one of them),
+            # skip — nothing to reconcile.
+            if portal_key in portal_known:
+                continue
+
+            # Collect it (may appear in multiple snapshots — take the max to avoid
+            # double-counting as snapshots are cumulative)
+            prev = raw_rows.get(merge_key)
+            if prev is None or rec["issued"] > prev["issued"]:
+                raw_rows[merge_key] = {
+                    "canon_tehsil": canon_t,
+                    "csv_village": rec["village"],
+                    "csv_village_norm": raw_v_norm,
+                    "issued": rec["issued"],
+                    "approved": rec["approved"],
+                }
+
+    # Group by tehsil for display
+    canon_tehsils = sorted(TEHSIL_REFERENCE.keys())
+    groups = {t: [] for t in canon_tehsils}
+    orphans = []
+    for merge_key, info in raw_rows.items():
+        canon_t = info["canon_tehsil"]
+        current_sel = existing_aliases.get(merge_key, "")
+        options = _portal_villages_in_tehsil(canon_t)
+        row = {
+            "merge_key":    merge_key,
+            "canon_tehsil": canon_t,
+            "csv_village":  info["csv_village"],
+            "csv_village_norm": info["csv_village_norm"],
+            "issued":       info["issued"],
+            "approved":     info["approved"],
+            "current_sel":  current_sel,
+            "options":      options,
+            "has_alias":    merge_key in existing_aliases,
+        }
+        if canon_t in groups:
+            groups[canon_t].append(row)
+        else:
+            orphans.append(row)
+    for t in groups:
+        groups[t].sort(key=lambda r: r["csv_village"].upper())
+    orphans.sort(key=lambda r: r["csv_village"].upper())
+
+    tehsil_rows = []
+    for t in canon_tehsils:
+        rows_in_t = groups.get(t, [])
+        if not rows_in_t:
+            continue
+        tehsil_rows.append({
+            "tehsil": t,
+            "display": pretty_tehsil(t),
+            "rows": rows_in_t,
+            "row_count": len(rows_in_t),
+            "total_issued": sum(r["issued"] for r in rows_in_t),
+        })
+
+    return render_template("csv_reconciliation.html",
+                           tehsil_rows=tehsil_rows,
+                           orphans=orphans,
+                           total_unmatched=sum(len(groups[t]) for t in groups) + len(orphans),
+                           existing_count=len(existing_aliases),
                            error=error, saved=saved)
 
 
