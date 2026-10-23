@@ -471,7 +471,15 @@ def build_state():
     errors = []
     for date, path in discover_snapshots():
         try:
-            snap = parse_snapshot_csv(path)
+            # v33 — cache parsed snapshots by (path, mtime). Only re-parse when
+            # the file on disk actually changed (new upload or replaced).
+            mt = os.path.getmtime(path)
+            cached = _snapshot_parse_cache.get(path)
+            if cached and cached[0] == mt:
+                snap = cached[1]
+            else:
+                snap = parse_snapshot_csv(path)
+                _snapshot_parse_cache[path] = (mt, snap)
         except Exception as e:
             errors.append(str(e))
             continue
@@ -536,37 +544,46 @@ CD_OVERRIDE_FILE      = os.path.join(DATA_DIR, "camp_directors.json")
 VILLAGE_MAPPING_FILE  = os.path.join(DATA_DIR, "village_mappings.json")
 CSV_ALIAS_FILE        = os.path.join(DATA_DIR, "csv_village_aliases.json")
 
-# v32 — mtime-cached loader for CSV-side village aliases. Called from
-# every norm_key() invocation (which runs many times per request), so we
-# avoid re-reading the JSON file by comparing mtime.
-_csv_alias_cache = {"mtime": -1, "data": {}}
+# v32 — CSV-side village aliases, cached in memory. Called from every norm_key()
+# invocation (runs ~50k times per CSV), so we avoid per-call file stats:
+# "loaded" is a flag flipped true the first time we read the file, and only
+# cleared by _save_csv_village_aliases + _invalidate_snapshot_parse_cache.
+_csv_alias_cache = {"loaded": False, "data": {}}
 
 def _load_csv_village_aliases():
     """Return {"TEHSIL_NORM||CSV_VILLAGE_NORM": "PORTAL_VILLAGE_NORM"}.
-    Admin-approved via the CSV Village Reconciliation page; merges a CSV-side
-    spelling into the portal's canonical village so uploaded data lands on the
-    right row instead of creating a duplicate."""
+    Admin-approved via CSV Village Reconciliation; merges a CSV-side spelling
+    into the portal's canonical village so uploaded data lands on the right row
+    instead of creating a duplicate."""
+    if _csv_alias_cache["loaded"]:
+        return _csv_alias_cache["data"]
     try:
-        if not os.path.exists(CSV_ALIAS_FILE):
-            _csv_alias_cache["mtime"] = -1
-            _csv_alias_cache["data"] = {}
-            return {}
-        mt = os.path.getmtime(CSV_ALIAS_FILE)
-        if mt != _csv_alias_cache["mtime"]:
+        if os.path.exists(CSV_ALIAS_FILE):
             with open(CSV_ALIAS_FILE, "r", encoding="utf-8") as f:
                 _csv_alias_cache["data"] = json.load(f) or {}
-            _csv_alias_cache["mtime"] = mt
-        return _csv_alias_cache["data"]
     except Exception:
-        return {}
+        _csv_alias_cache["data"] = {}
+    _csv_alias_cache["loaded"] = True
+    return _csv_alias_cache["data"]
 
 def _save_csv_village_aliases(aliases):
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(CSV_ALIAS_FILE, "w", encoding="utf-8") as f:
         json.dump(aliases, f, indent=2, sort_keys=True)
-    # Bust the cache so next norm_key sees it immediately.
-    _csv_alias_cache["mtime"] = -1
+    # Bust both caches so next page load re-parses CSVs with new aliases.
+    _csv_alias_cache["loaded"] = False
     _csv_alias_cache["data"] = {}
+    _invalidate_snapshot_parse_cache()
+
+
+# v33 — cache parsed CSV snapshots in memory, keyed by (path, mtime). On a
+# cold start with many large daily snapshots this is the dominant cost of
+# the first page load; after this cache warms once, repeat parses are free.
+# Cleared whenever CSV village aliases change (parse embeds norm_key output).
+_snapshot_parse_cache = {}  # {path: (mtime, parsed_dict)}
+
+def _invalidate_snapshot_parse_cache():
+    _snapshot_parse_cache.clear()
 
 def load_targets_overrides():
     """Return {norm_key: int}. Overrides merge on top of DEFAULT_TARGETS."""
