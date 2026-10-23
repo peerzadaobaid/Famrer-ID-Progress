@@ -48,6 +48,11 @@
       <div class="desc">Tehsil-wise view of every row the Google Sheet contributes. Fix village spelling mismatches via dropdown so Pending Entries lines up with the portal.</div>
     </a>
     {% endif %}
+    <a href="{{ url_for('csv_reconciliation') }}" class="admin-tile">
+      <span class="icon">🧩</span>
+      <div class="title">CSV Village Reconciliation</div>
+      <div class="desc">Merge CSV-side village spellings (e.g. "Rakh-i-Asham") into the portal's canonical name ("Rkhi Asham") so uploads don't create duplicate rows.</div>
+    </a>
   </div>
 
   {% if not pending_disabled %}
