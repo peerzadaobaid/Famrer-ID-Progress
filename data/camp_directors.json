@@ -1,9 +1,21 @@
 {
+  "AJAS||AJAS": {
+    "n": "Leteef Ahmad Shah SMS III",
+    "p": "",
+    "t": "AJAS",
+    "v": "Ajas"
+  },
   "ALOOSA||ASHTANGOO": {
     "n": "NA",
     "p": "",
     "t": "ALOOSA",
     "v": "Ashtangoo"
+  },
+  "ALOOSA||MANGNIPORA": {
+    "n": "Dr Aijaz Ahmad",
+    "p": "9149986467",
+    "t": "ALOOSA",
+    "v": "Mangnipora"
   },
   "BANDIPORA||AHEMSHREIF": {
     "n": "Mr Syed Shahnawaz Haji",
@@ -11,11 +23,23 @@
     "t": "BANDIPORA",
     "v": "AHEMSHREIF"
   },
+  "BANDIPORA||AJAR": {
+    "n": "Mr Rafiq Ahmad Bhat",
+    "p": "7780861724",
+    "t": "BANDIPORA",
+    "v": "Ajar"
+  },
   "BANDIPORA||ARAGAM": {
+    "n": "Mr Parvaiz Ahmad Reshi",
+    "p": "7788932598",
+    "t": "BANDIPORA",
+    "v": "Aragam"
+  },
+  "BANDIPORA||ARINDARDPORA": {
     "n": "Hafiz Qazafi Khan(AEA)",
     "p": "9596184321",
     "t": "BANDIPORA",
-    "v": "Aragam"
+    "v": "Arindardpora"
   },
   "BANDIPORA||ATHWATOO": {
     "n": "Mr Zahoor Ahmad Bhat",
@@ -35,11 +59,23 @@
     "t": "BANDIPORA",
     "v": "BHUTTO"
   },
+  "BANDIPORA||BONAKOOT": {
+    "n": "Mr Zahoor Ahmad Bhat",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "Bonakoot"
+  },
   "BANDIPORA||GAMROO": {
     "n": "Gulzar Ahmad Khan",
     "p": "",
     "t": "BANDIPORA",
     "v": "GAMROO"
+  },
+  "BANDIPORA||GAROORA": {
+    "n": "Mr Parvaiz Ahmad Reshi",
+    "p": "7788932598",
+    "t": "BANDIPORA",
+    "v": "GAROORA"
   },
   "BANDIPORA||GUND DACHINA": {
     "n": "Mr Parvaiz Ahmad Reshi",
@@ -53,6 +89,18 @@
     "t": "BANDIPORA",
     "v": "Gundpora Rampora"
   },
+  "BANDIPORA||KALOOSA NATHPORA": {
+    "n": "Mr Abdul Rehman Mathanji",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "Kaloosa Nathpora"
+  },
+  "BANDIPORA||KHAYAR": {
+    "n": "Mohd Abbas Mir (HDO)",
+    "p": "7006051991",
+    "t": "BANDIPORA",
+    "v": "KHAYAR"
+  },
   "BANDIPORA||KUDARA": {
     "n": "Hafiz Qazafi Khan(AEA)",
     "p": "9596184321",
@@ -60,7 +108,7 @@
     "v": "KUDARA."
   },
   "BANDIPORA||LAWAYPORA": {
-    "n": "Mohd Ashraf Shah",
+    "n": "Mohd Abbas Mir (HDO)",
     "p": "7006051991",
     "t": "BANDIPORA",
     "v": "LAWAYPORA"
@@ -71,11 +119,41 @@
     "t": "BANDIPORA",
     "v": "LOWDARA"
   },
+  "BANDIPORA||MANTRIGAM": {
+    "n": "Mohd Abbas Mir (HDO)",
+    "p": "7006051991",
+    "t": "BANDIPORA",
+    "v": "Mantrigam"
+  },
+  "BANDIPORA||NADIHAL": {
+    "n": "Gulzar Ahmad Khan",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "Nadihal"
+  },
   "BANDIPORA||NASSU": {
     "n": "Mr Shabir Ahmad Ganie",
     "p": "7006114318",
     "t": "BANDIPORA",
     "v": "NASSU"
+  },
+  "BANDIPORA||ONAGAM": {
+    "n": "Javid Ahmad Dar (SMS SDL)",
+    "p": "7006515845",
+    "t": "BANDIPORA",
+    "v": "Onagam"
+  },
+  "BANDIPORA||PANJIGAM": {
+    "n": "Mr Abdul Rehman Mathanji",
+    "p": "",
+    "t": "BANDIPORA",
+    "v": "PANJIGAM"
+  },
+  "BANDIPORA||QAZIPORA PUTUSHAI": {
+    "n": "Javid Ahmad Dar (SMS SDL)",
+    "p": "7006515845",
+    "t": "BANDIPORA",
+    "v": "Qazipora Putushai"
   },
   "BANDIPORA||SONERWANI": {
     "n": "Mr Abdul Rashid Lone",
@@ -83,11 +161,29 @@
     "t": "BANDIPORA",
     "v": "Sonerwani"
   },
+  "BANDIPORA||SUMLARSHOKBABA": {
+    "n": "Hafiz Qazafi Khan(AEA)",
+    "p": "9596184321",
+    "t": "BANDIPORA",
+    "v": "Sumlarshokbaba"
+  },
   "BANDIPORA||WATAPORA": {
     "n": "Javid Ahmad Dar (SMS SDL)",
     "p": "7006515845",
     "t": "BANDIPORA",
     "v": "WATAPORA"
+  },
+  "GUREZ||BADWAN WANPORA": {
+    "n": "Dr.Sameer Ahmad Lone, VAS",
+    "p": "70066028181",
+    "t": "GUREZ",
+    "v": "Badwan-Wanpora"
+  },
+  "GUREZ||DAWAR": {
+    "n": "Dr.Naseer Shanum, SDO Gurez",
+    "p": "6005498991",
+    "t": "GUREZ",
+    "v": "Dawar"
   },
   "GUREZ||GULSHANPORA": {
     "n": "Mr Altaf Ahmad",
@@ -101,6 +197,18 @@
     "t": "GUREZ",
     "v": "Kanzalwan-Nail"
   },
+  "GUREZ||MARKOOT": {
+    "n": "Dr.Naseer Shanum, SDO Gurez",
+    "p": "6005498991",
+    "t": "GUREZ",
+    "v": "Markoot"
+  },
+  "GUREZ||SHAHPORA ACHOORA CHURWAN": {
+    "n": "Dr.Sameer Ahmad Lone, VAS",
+    "p": "70066028181",
+    "t": "GUREZ",
+    "v": "Shahpora (Achoora -Churwan)"
+  },
   "HAJIN||GULSHANPORA": {
     "n": "Altaf Hassan Bhat (JAEO)",
     "p": "8493011248",
@@ -113,6 +221,12 @@
     "t": "HAJIN",
     "v": "GUND- I- PRANG"
   },
+  "HAJIN||GUND JAHENGEER": {
+    "n": "Ghulam Rasool Hajam",
+    "p": "9797826874",
+    "t": "HAJIN",
+    "v": "Gund Jahengeer"
+  },
   "HAJIN||GUND SADERKOOT": {
     "n": "Mr Aejaz Ahmad Wani",
     "p": "7889818735",
@@ -124,6 +238,12 @@
     "p": "7889818735",
     "t": "HAJIN",
     "v": "GUNDI BOON"
+  },
+  "HAJIN||KANIPORA": {
+    "n": "Dr Syed Imran",
+    "p": "7006409066",
+    "t": "HAJIN",
+    "v": "KANIPORA"
   },
   "HAJIN||KOSUMBAGH": {
     "n": "NA",
@@ -139,9 +259,15 @@
   },
   "HAJIN||POSHWARI": {
     "n": "Altaf Hassan Bhat (JAEO)",
-    "p": "",
+    "p": "8493011248",
     "t": "HAJIN",
     "v": "POSHWARI,"
+  },
+  "HAJIN||RAKHI HAJIN": {
+    "n": "Ghulam Rasool Hajam",
+    "p": "9797826874",
+    "t": "HAJIN",
+    "v": "RAKHI HAJIN"
   },
   "HAJIN||SRI HARI KARANGUND": {
     "n": "Muzaffar Ahmad Sofi(JAEO)",
@@ -163,7 +289,7 @@
   },
   "SUMBAL||GANASTAN": {
     "n": "Sajad Ahmad Wani(JAEO)",
-    "p": "",
+    "p": "7006912553",
     "t": "SUMBAL",
     "v": "Ganastan"
   },
@@ -175,7 +301,7 @@
   },
   "SUMBAL||GUNDIKHALIL": {
     "n": "Mr Shabir Ahmad Dhobi",
-    "p": "9906580671",
+    "p": "9797756269",
     "t": "SUMBAL",
     "v": "GUNDIKHALIL"
   },
@@ -232,5 +358,65 @@
     "p": "9858332300",
     "t": "SUMBAL",
     "v": "WAHIDPORA"
+  },
+  "TULAIL||BADUAAB": {
+    "n": "Dr.Nazir Ahmad",
+    "p": "9419418166",
+    "t": "TULAIL",
+    "v": "Baduaab"
+  },
+  "TULAIL||BADUGAM": {
+    "n": "Dr.Aabid VAS",
+    "p": "9149696927",
+    "t": "TULAIL",
+    "v": "Badugam"
+  },
+  "TULAIL||BARNAYEE": {
+    "n": "Dr.Ab Rehman, VAS",
+    "p": "7780815224",
+    "t": "TULAIL",
+    "v": "Barnayee"
+  },
+  "TULAIL||BUGLINDER": {
+    "n": "Mr.Abdullah",
+    "p": "7006868262",
+    "t": "TULAIL",
+    "v": "Buglinder"
+  },
+  "TULAIL||DANGITHAL": {
+    "n": "Dr.Ab Rehman, VAS",
+    "p": "7780815224",
+    "t": "TULAIL",
+    "v": "Dangithal"
+  },
+  "TULAIL||GUJRAN": {
+    "n": "Dr.Nazir Ahmad",
+    "p": "9419418166",
+    "t": "TULAIL",
+    "v": "Gujran"
+  },
+  "TULAIL||JURNIYAL": {
+    "n": "Dr.Aabid VAS",
+    "p": "9149696927",
+    "t": "TULAIL",
+    "v": "Jurniyal"
+  },
+  "TULAIL||NEERU": {
+    "n": "Dr.Aabid VAS",
+    "p": "9149696927",
+    "t": "TULAIL",
+    "v": "Neeru"
+  },
+  "TULAIL||SARDAAB": {
+    "n": "Mr.Abdullah",
+    "p": "7006868262",
+    "t": "TULAIL",
+    "v": "Sardaab"
+  },
+  "TULAIL||ZEDGAY": {
+    "n": "Dr.Ab Rehman, VAS",
+    "p": "7780815224",
+    "t": "TULAIL",
+    "v": "Zedgay"
   }
 }
