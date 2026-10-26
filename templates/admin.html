@@ -53,6 +53,11 @@
       <div class="title">CSV Village Reconciliation</div>
       <div class="desc">Merge CSV-side village spellings (e.g. "Rakh-i-Asham") into the portal's canonical name ("Rkhi Asham") so uploads don't create duplicate rows.</div>
     </a>
+    <a href="{{ url_for('cd_reconciliation') }}" class="admin-tile">
+      <span class="icon">🔄</span>
+      <div class="title">Camp Director Reshuffle</div>
+      <div class="desc">Reassign villages between existing camp directors via dropdown (name &amp; phone auto-fill), or add a brand new director. Built for reshuffles — one page, one save.</div>
+    </a>
   </div>
 
   {% if not pending_disabled %}
