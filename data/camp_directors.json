@@ -5,17 +5,35 @@
     "t": "AJAS",
     "v": "Ajas"
   },
+  "ALOOSA||ALOOSA": {
+    "n": "Dr Irfan",
+    "p": "",
+    "t": "ALOOSA",
+    "v": "Aloosa"
+  },
   "ALOOSA||ASHTANGOO": {
     "n": "NA",
     "p": "",
     "t": "ALOOSA",
     "v": "Ashtangoo"
   },
+  "ALOOSA||KEHNOOSA": {
+    "n": "Dr Irfan",
+    "p": "",
+    "t": "ALOOSA",
+    "v": "Kehnoosa"
+  },
   "ALOOSA||MANGNIPORA": {
     "n": "Dr Aijaz Ahmad",
     "p": "9149986467",
     "t": "ALOOSA",
     "v": "Mangnipora"
+  },
+  "ALOOSA||QUIL MUQAM": {
+    "n": "Dr Aijaz Ahmad",
+    "p": "9149986467",
+    "t": "ALOOSA",
+    "v": "Quil Muqam"
   },
   "BANDIPORA||AHEMSHREIF": {
     "n": "Mr Syed Shahnawaz Haji",
