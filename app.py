@@ -1812,6 +1812,168 @@ def csv_reconciliation():
                            error=error, saved=saved)
 
 
+# ---- Camp Director Reconciliation (admin) -------------------------------
+# Reshuffle-oriented view of all camp-director assignments. Each village has
+# a dropdown of the current CD roster (which prefills name + phone), plus an
+# "+ Add new director" option for brand new names. Mostly used when the
+# district reshuffles who manages which villages.
+
+def _cd_norm_name(name):
+    """Case-insensitive, punctuation-stripped identity for a camp director.
+    Multiple villages sharing one director must have the same normalized name
+    so the group key for the dashboard CD-view matches up."""
+    s = (name or "").upper()
+    s = re.sub(r"[^A-Z0-9\s]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+def _current_cd_roster():
+    """Return the unique list of camp directors currently assigned anywhere,
+    deduped by normalized name. Each entry: {norm, name, phone, village_count}.
+    Includes NA-placeholders so admin can see which villages still have no CD."""
+    merged = {k: dict(v) for k, v in CAMP_DIRECTORS_59.items()}
+    for k, v in load_cd_overrides().items():
+        merged[k] = v
+    roster = {}
+    for k, cd in merged.items():
+        name = (cd.get("n") or "").strip()
+        if not name or name.upper() in ("NA", "N/A", "NOT AVAILABLE"):
+            continue
+        norm = _cd_norm_name(name)
+        if norm not in roster:
+            roster[norm] = {"norm": norm, "name": name, "phone": cd.get("p", ""), "village_count": 0, "villages": []}
+        roster[norm]["village_count"] += 1
+        roster[norm]["villages"].append({"tehsil": cd.get("t",""), "village": cd.get("v",""), "key": k})
+    rows = sorted(roster.values(), key=lambda r: r["name"].upper())
+    # Prefer a filled phone over an empty one when the same director was logged
+    # with and without a number across villages
+    for r in rows:
+        phones = [v.get("phone") for k, v in roster.items() if k == r["norm"]]
+        if not r["phone"]:
+            for mk, mv in merged.items():
+                if _cd_norm_name(mv.get("n","")) == r["norm"] and mv.get("p"):
+                    r["phone"] = mv["p"]
+                    break
+    return rows
+
+
+@app.route("/admin/cd-reconciliation", methods=["GET", "POST"])
+@admin_required
+def cd_reconciliation():
+    error = None
+    saved = False
+
+    if request.method == "POST":
+        # Build the new overrides from the form.
+        # Each village posts:
+        #   assign::<norm_key>  = norm of chosen existing CD  OR  "__NEW__"  OR  "__UNASSIGN__"  OR  ""
+        #   newname::<norm_key> + newphone::<norm_key>        (when "__NEW__")
+        roster = _current_cd_roster()
+        roster_by_norm = {r["norm"]: r for r in roster}
+
+        new_overrides = {}
+        current_overrides = load_cd_overrides()
+
+        # Walk every village that has a village key in the form
+        for form_key, val in request.form.items():
+            if not form_key.startswith("assign::"):
+                continue
+            vk = form_key[len("assign::"):]
+            choice = (val or "").strip()
+            # Determine the display tehsil/village — prefer baked-in / existing override; fall back to key parts
+            tehsil = village = ""
+            if vk in CAMP_DIRECTORS_59:
+                tehsil = CAMP_DIRECTORS_59[vk].get("t","")
+                village = CAMP_DIRECTORS_59[vk].get("v","")
+            elif vk in current_overrides:
+                tehsil = current_overrides[vk].get("t","")
+                village = current_overrides[vk].get("v","")
+            else:
+                parts = vk.split("||", 1)
+                if len(parts) == 2:
+                    tehsil, village = parts[0], parts[1].title()
+            if choice == "" or choice == "__NOCHANGE__":
+                # Keep whatever is already in place: if an override exists, carry it over;
+                # otherwise the baked-in default stays effective (no override needed).
+                if vk in current_overrides:
+                    new_overrides[vk] = current_overrides[vk]
+                continue
+            if choice == "__UNASSIGN__":
+                new_overrides[vk] = {"n": "NA", "p": "", "t": tehsil, "v": village}
+                continue
+            if choice == "__NEW__":
+                name = (request.form.get("newname::" + vk) or "").strip()
+                phone = (request.form.get("newphone::" + vk) or "").strip()
+                if not name:
+                    continue
+                new_overrides[vk] = {"n": name, "p": phone, "t": tehsil, "v": village}
+                continue
+            # Existing CD selected by their normalized name
+            picked = roster_by_norm.get(choice)
+            if picked:
+                new_overrides[vk] = {"n": picked["name"], "p": picked["phone"], "t": tehsil, "v": village}
+
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(CD_OVERRIDE_FILE, "w", encoding="utf-8") as f:
+            json.dump(new_overrides, f, indent=2, sort_keys=True)
+        if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+            try:
+                commit_to_github(CD_OVERRIDE_FILE, "data/camp_directors.json",
+                                 "admin: reshuffle camp directors ({} assignments)".format(len(new_overrides)))
+                saved = True
+            except Exception as e:
+                error = "Saved locally but GitHub push failed: {}".format(e)
+        else:
+            saved = True
+        _invalidate_dashboard_cache()
+        _publish_mirror_quietly()
+
+    # Build the display: every CD-assigned village (baked-in + overrides), grouped by tehsil.
+    merged = {k: dict(v) for k, v in CAMP_DIRECTORS_59.items()}
+    for k, v in load_cd_overrides().items():
+        merged[k] = v
+    roster = _current_cd_roster()
+
+    canon_tehsils = sorted(TEHSIL_REFERENCE.keys())
+    groups = {t: [] for t in canon_tehsils}
+    for vk, cd in merged.items():
+        canon_t = cd.get("t","").upper()
+        name = (cd.get("n") or "").strip()
+        is_unassigned = (not name) or name.upper() in ("NA", "N/A", "NOT AVAILABLE")
+        row = {
+            "key": vk,
+            "tehsil": cd.get("t",""),
+            "village": cd.get("v",""),
+            "current_name": "" if is_unassigned else name,
+            "current_phone": "" if is_unassigned else cd.get("p",""),
+            "current_norm": "" if is_unassigned else _cd_norm_name(name),
+            "is_unassigned": is_unassigned,
+        }
+        groups.setdefault(canon_t, []).append(row)
+    for t in groups:
+        groups[t].sort(key=lambda r: (r["village"] or "").upper())
+
+    tehsil_rows = []
+    for t in canon_tehsils:
+        rows_in_t = groups.get(t, [])
+        if not rows_in_t:
+            continue
+        tehsil_rows.append({
+            "tehsil": t,
+            "display": pretty_tehsil(t),
+            "rows": rows_in_t,
+            "row_count": len(rows_in_t),
+            "unassigned_count": sum(1 for r in rows_in_t if r["is_unassigned"]),
+        })
+
+    return render_template("cd_reconciliation.html",
+                           tehsil_rows=tehsil_rows,
+                           roster=roster,
+                           total_villages=sum(g["row_count"] for g in tehsil_rows),
+                           total_unassigned=sum(g["unassigned_count"] for g in tehsil_rows),
+                           total_directors=len(roster),
+                           error=error, saved=saved)
+
+
 # ---- Dashboard (public) --------------------------------------------------
 
 @app.route("/")
