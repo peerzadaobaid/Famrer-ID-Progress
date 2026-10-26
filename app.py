@@ -1935,22 +1935,21 @@ def cd_reconciliation():
         merged[k] = v
     roster = _current_cd_roster()
 
-    # Universe of villages that COULD have a camp director:
-    #   DEFAULT_TARGETS + override-added targets + any key already in merged
-    #   minus first-bucket villages (which are complete, no CD needed)
-    universe = {}  # norm_key -> (display_tehsil, display_village)
+    # Universe of villages that COULD have a camp director — ALL 124 portal
+    # villages, including first-bucket ones. Dashboard CD views automatically
+    # pick up any village with a CD assignment, so assigning a director here
+    # moves that village into CD views; leaving it unassigned keeps it only
+    # on the tehsil view.
+    universe = {}  # norm_key -> (display_tehsil, display_village, is_first_bucket)
     for t, v, _tg in effective_targets():
-        if is_first_bucket(v):
-            continue
-        universe[norm_key(t, v)] = (t, v)
+        universe[norm_key(t, v)] = (t, v, is_first_bucket(v))
     for vk, cd in merged.items():
-        if cd.get("v") and is_first_bucket(cd["v"]):
-            continue
-        universe.setdefault(vk, (cd.get("t",""), cd.get("v","")))
+        if vk not in universe:
+            universe[vk] = (cd.get("t",""), cd.get("v",""), is_first_bucket(cd.get("v","")))
 
     canon_tehsils = sorted(TEHSIL_REFERENCE.keys())
     groups = {t: [] for t in canon_tehsils}
-    for vk, (disp_t, disp_v) in universe.items():
+    for vk, (disp_t, disp_v, is_fb) in universe.items():
         canon_t = (canonical_tehsil(disp_t) or norm_name(disp_t)).upper()
         cd = merged.get(vk, {})
         name = (cd.get("n") or "").strip()
@@ -1963,6 +1962,7 @@ def cd_reconciliation():
             "current_phone": "" if is_unassigned else cd.get("p",""),
             "current_norm": "" if is_unassigned else _cd_norm_name(name),
             "is_unassigned": is_unassigned,
+            "is_first_bucket": is_fb,
         }
         groups.setdefault(canon_t, []).append(row)
     # Within each tehsil: unassigned villages at TOP so admin notices them first,
