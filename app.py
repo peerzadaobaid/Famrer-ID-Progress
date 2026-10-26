@@ -1927,30 +1927,48 @@ def cd_reconciliation():
         _invalidate_dashboard_cache()
         _publish_mirror_quietly()
 
-    # Build the display: every CD-assigned village (baked-in + overrides), grouped by tehsil.
+    # Build the display: EVERY non-first-bucket village the portal knows about,
+    # whether it currently has a camp director or not. First-bucket villages
+    # (the 40 "already-done" ones) don't need CDs so they're excluded.
     merged = {k: dict(v) for k, v in CAMP_DIRECTORS_59.items()}
     for k, v in load_cd_overrides().items():
         merged[k] = v
     roster = _current_cd_roster()
 
+    # Universe of villages that COULD have a camp director:
+    #   DEFAULT_TARGETS + override-added targets + any key already in merged
+    #   minus first-bucket villages (which are complete, no CD needed)
+    universe = {}  # norm_key -> (display_tehsil, display_village)
+    for t, v, _tg in effective_targets():
+        if is_first_bucket(v):
+            continue
+        universe[norm_key(t, v)] = (t, v)
+    for vk, cd in merged.items():
+        if cd.get("v") and is_first_bucket(cd["v"]):
+            continue
+        universe.setdefault(vk, (cd.get("t",""), cd.get("v","")))
+
     canon_tehsils = sorted(TEHSIL_REFERENCE.keys())
     groups = {t: [] for t in canon_tehsils}
-    for vk, cd in merged.items():
-        canon_t = cd.get("t","").upper()
+    for vk, (disp_t, disp_v) in universe.items():
+        canon_t = (canonical_tehsil(disp_t) or norm_name(disp_t)).upper()
+        cd = merged.get(vk, {})
         name = (cd.get("n") or "").strip()
         is_unassigned = (not name) or name.upper() in ("NA", "N/A", "NOT AVAILABLE")
         row = {
             "key": vk,
-            "tehsil": cd.get("t",""),
-            "village": cd.get("v",""),
+            "tehsil": disp_t,
+            "village": disp_v,
             "current_name": "" if is_unassigned else name,
             "current_phone": "" if is_unassigned else cd.get("p",""),
             "current_norm": "" if is_unassigned else _cd_norm_name(name),
             "is_unassigned": is_unassigned,
         }
         groups.setdefault(canon_t, []).append(row)
+    # Within each tehsil: unassigned villages at TOP so admin notices them first,
+    # then alphabetical by village name.
     for t in groups:
-        groups[t].sort(key=lambda r: (r["village"] or "").upper())
+        groups[t].sort(key=lambda r: (0 if r["is_unassigned"] else 1, (r["village"] or "").upper()))
 
     tehsil_rows = []
     for t in canon_tehsils:
