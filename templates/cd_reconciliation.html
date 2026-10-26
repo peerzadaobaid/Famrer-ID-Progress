@@ -29,6 +29,7 @@
   .sticky-save { position: sticky; bottom: 0; background: #fff; padding: 14px 0; border-top: 1px solid #e5ebf3; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; z-index: 10; }
   .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
   .pill-unassigned { background: #fde8e8; color: #a63434; }
+  .pill-fb { background: #fff2d6; color: #8a5a00; margin-left: 6px; }
   .roster-panel { margin-bottom: 20px; padding: 14px 16px; background: #fff; border: 1px solid #e5ebf3; border-radius: 8px; }
   .roster-panel h3 { font-size: 13.5px; color: #1a3a5c; margin-bottom: 8px; }
   .roster-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -64,7 +65,7 @@
     <span><b>Total CD-assigned villages:</b> {{ total_villages }}</span>
     <span><b>Current directors:</b> {{ total_directors }}</span>
     <span><b>Unassigned (NA):</b> {{ total_unassigned }}</span>
-    <span><b>Tip:</b> picking an existing director auto-fills their name &amp; phone. Pick <i>+ Add new director</i> only for a brand new name.</span>
+    <span><b>Tip:</b> picking an existing director auto-fills name &amp; phone. Pick <i>+ Add new director</i> for a brand new name. Villages with a director appear on the Camp Director Progress view; unassigned ones stay only on the tehsil-wise view.</span>
   </div>
 
   {% if roster %}
@@ -100,7 +101,7 @@
             <tbody>
               {% for r in group.rows %}
                 <tr class="{% if r.is_unassigned %}unassigned{% endif %}">
-                  <td class="v-name">{{ r.village }}</td>
+                  <td class="v-name">{{ r.village }}{% if r.is_first_bucket %}<span class="pill pill-fb">1st Bucket</span>{% endif %}</td>
                   <td class="current">
                     {% if r.is_unassigned %}
                       <span class="pill pill-unassigned">unassigned</span>
