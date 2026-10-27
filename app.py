@@ -1693,15 +1693,24 @@ def csv_reconciliation():
     saved = False
 
     if request.method == "POST":
-        new_aliases = {}
+        # v34.3 — START from the existing aliases, not from empty. The
+        # reconciliation page only lists UNMATCHED villages, so previously
+        # merged ones aren't posted back in the form. If we built the dict
+        # from scratch each time, every save after the first would wipe out
+        # all older merges. We now overlay only the currently-displayed rows.
+        new_aliases = dict(_load_csv_village_aliases())
         for key, val in request.form.items():
             if not key.startswith("map::"):
                 continue
             merge_key = key[len("map::"):]  # "TEHSIL||CSV_VILLAGE_NORM"
             val = (val or "").strip()
-            if not val:
-                continue  # unmatched — don't persist
-            new_aliases[merge_key] = val
+            if val:
+                new_aliases[merge_key] = val
+            else:
+                # Explicit "leave unmatched" on a currently-displayed row —
+                # if an alias happened to exist for it (shouldn't, since merged
+                # rows don't appear), drop it.
+                new_aliases.pop(merge_key, None)
         _save_csv_village_aliases(new_aliases)
         if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
             try:
@@ -2594,7 +2603,16 @@ def build_mirror_html():
     state["settings"] = dict(state.get("settings", {}))
     state["settings"]["show_pending_entries"] = False
     state["settings"]["show_pending_entries_tehsil"] = False
-    state["mirrorGeneratedAt"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    # v34.3 — date-only timestamps on the mirror. The dashboard build attaches
+    # a full ISO timestamp to state["generated"] which changes every call;
+    # without flattening it, mirror HTML would differ byte-for-byte on every
+    # admin save and commit_to_github's content-hash dedup wouldn't help. By
+    # pinning both to a date-only string, same-day saves produce identical
+    # mirror HTML when the underlying data didn't change → no commit, no
+    # Render deploy loop.
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    state["mirrorGeneratedAt"] = today
+    state["generated"] = today
 
     with app.test_request_context("/"):
         return render_template("dashboard.html",
@@ -2639,14 +2657,21 @@ def publish_mirror():
 def commit_to_github(local_path, repo_path, message):
     """Push a file to GitHub via API. Requires GH_TOKEN + GH_REPO env vars.
     local_path: path on this server; repo_path: path inside the repo (e.g. 'data/2026-10-04.csv').
+
+    v34.3 — skip the PUT entirely if the file on GitHub already has identical
+    content. GitHub tags each blob with a SHA (sha1 over "blob <len>\\0<bytes>");
+    we recompute that locally and compare. This stops the "deploy loop" where
+    identical content (e.g. docs/.nojekyll) was being re-committed on every
+    admin save, triggering a Render redeploy each time.
     """
-    import base64, urllib.request, urllib.error
+    import base64, hashlib, urllib.request, urllib.error
     token = os.environ["GH_TOKEN"]
     repo = os.environ["GH_REPO"]
     branch = os.environ.get("GH_BRANCH", "main")
     url = "https://api.github.com/repos/{}/contents/{}".format(repo, repo_path)
     with open(local_path, "rb") as f:
-        content_b64 = base64.b64encode(f.read()).decode("ascii")
+        local_bytes = f.read()
+    content_b64 = base64.b64encode(local_bytes).decode("ascii")
     sha = None
     try:
         req = urllib.request.Request(url + "?ref=" + branch,
@@ -2654,6 +2679,12 @@ def commit_to_github(local_path, repo_path, message):
                                                "Accept": "application/vnd.github+json"})
         resp = urllib.request.urlopen(req, timeout=15)
         sha = json.loads(resp.read())["sha"]
+        # Git blob SHA = sha1("blob <len>\0" + bytes). If equal, content is identical
+        # and we skip the write — no commit, no deploy.
+        header = ("blob %d\0" % len(local_bytes)).encode("latin-1")
+        local_blob_sha = hashlib.sha1(header + local_bytes).hexdigest()
+        if local_blob_sha == sha:
+            return  # no-op; GitHub already has this exact content
     except urllib.error.HTTPError as e:
         if e.code != 404:
             raise
