@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Upload snapshot{% endblock %}
+{% block content %}
+
+{% if saved %}
+  <div style="margin:16px 0; padding:12px 14px; border:1px solid #c3e6cb;
+              background:#d4edda; color:#155724; border-radius:6px;">
+    <strong>Saved:</strong> {{ saved }}
+    {% if replaced_date %}
+      &nbsp;·&nbsp; Replaced the earlier snapshot for <strong>{{ replaced_date }}</strong>.
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if error %}
+  <div style="margin:16px 0; padding:12px 14px; border:1px solid #f5c6cb;
+              background:#f8d7da; color:#721c24; border-radius:6px;">
+    <strong>Problem:</strong> {{ error }}
+  </div>
+{% endif %}
+
+<div style="max-width:900px; margin:0 auto; background:#fff; border:1px solid #e5e7eb;
+            border-radius:10px; padding:22px 26px; box-shadow:0 1px 3px rgba(0,0,0,.04);">
+  <h2 style="margin:0 0 6px 0; color:#0b2447;">New daily snapshot</h2>
+  <p style="color:#4b5563; margin:0 0 14px 0;">
+    Upload the CSV exactly as exported from the AGRISTACK portal. Pick the date
+    the snapshot represents — the portal diffs this against the previous day to
+    compute additions.
+  </p>
+
+  <form method="POST" enctype="multipart/form-data" id="uploadForm">
+
+    <!-- Overwrite confirmation (shown by JS when date collides) -->
+    <div id="overwriteBox" style="display:none; margin:12px 0; padding:12px 14px;
+                border:1px solid #f0c674; background:#fff8e8; color:#7a5b14;
+                border-radius:6px;">
+      &#9888; A snapshot for <strong id="overwriteDate"></strong> already exists.
+      If you continue, that one will be replaced. The older version stays in
+      GitHub commit history and can be restored from there if needed.
+      <div style="margin-top:8px;">
+        <label style="color:#7a5b14; font-weight:600; cursor:pointer;">
+          <input type="checkbox" id="confirmChk" name="confirm_overwrite" value="yes">
+          Yes, replace it
+        </label>
+      </div>
+    </div>
+
+    <div style="margin:14px 0;">
+      <label style="display:block; font-size:12px; letter-spacing:.5px;
+                    color:#6b7280; margin-bottom:4px;">SNAPSHOT DATE (DD-MM-YYYY)</label>
+      <input type="text" name="date" id="dateInput"
+             value="{{ request.form.date or '' }}"
+             placeholder="dd-mm-yyyy"
+             style="width:100%; padding:10px 12px; border:1px solid #d1d5db;
+                    border-radius:6px; background:#eef4ff; font-size:15px;">
+    </div>
+
+    <div style="margin:14px 0;">
+      <label style="display:block; font-size:12px; letter-spacing:.5px;
+                    color:#6b7280; margin-bottom:4px;">CSV FILE</label>
+      <input type="file" name="csv" accept=".csv"
+             style="width:100%; padding:10px 12px; border:1px solid #d1d5db;
+                    border-radius:6px; background:#fff; font-size:14px;">
+    </div>
+
+    <!-- v36: additive / delta-only upload -->
+    <label style="display:block; margin:16px 0; padding:12px 14px;
+                  border:1px dashed #c99; background:#fff8e8; border-radius:6px;
+                  cursor:pointer;">
+      <input type="checkbox" name="additive" value="yes" style="margin-right:6px;">
+      <strong style="color:#7a5b14;">Treat this file as additions-only (delta)</strong><br>
+      <small style="color:#555;">
+        Tick ONLY when the uploaded CSV contains just today's new rows (not a
+        full cumulative export). The counts will be <em>added</em> to the
+        previous cumulative. Leave unticked for a normal cumulative snapshot.
+      </small>
+    </label>
+
+    <button type="submit" id="submitBtn"
+            style="background:#0b2447; color:#fff; padding:11px 20px;
+                   border:none; border-radius:6px; font-weight:600; font-size:15px;
+                   cursor:pointer;">
+      Upload
+    </button>
+  </form>
+</div>
+
+<div style="max-width:900px; margin:18px auto 0; background:#fff; border:1px solid #e5e7eb;
+            border-radius:10px; padding:18px 24px;">
+  <h3 style="margin:0 0 10px 0; color:#0b2447;">What happens next</h3>
+  <ol style="margin:0; padding-left:20px; color:#374151; line-height:1.6;">
+    <li>The CSV is saved as <code>data/YYYY-MM-DD.csv</code> and parsed.</li>
+    <li>If <code>GH_TOKEN</code> + <code>GH_REPO</code> are set on Render, the file
+        is committed to the GitHub repo and Render auto-redeploys.</li>
+    <li>If a snapshot already exists for that date, it is replaced (overwrite)
+        — old version stays in GitHub history.</li>
+    <li>If "additions-only" is ticked, a sidecar <code>.additive</code> marker is
+        saved next to the CSV so the dashboard SUMS it onto the previous
+        cumulative instead of overlaying.</li>
+  </ol>
+</div>
+
+{% if existing_dates %}
+<div style="max-width:900px; margin:18px auto 0; background:#fff; border:1px solid #e5e7eb;
+            border-radius:10px; padding:18px 24px;">
+  <h3 style="margin:0 0 10px 0; color:#0b2447;">Snapshots already uploaded
+    <span style="font-weight:400; color:#6b7280;">({{ existing_dates|length }})</span></h3>
+  <div style="display:flex; flex-wrap:wrap; gap:6px;">
+    {% for d in existing_dates %}
+      <span style="padding:4px 10px; border:1px solid #cbd5e1; border-radius:999px;
+                   background:{% if d in additive_dates %}#fff3cd{% else %}#f1f5f9{% endif %};
+                   color:#334155; font-size:13px;">
+        {{ d }}{% if d in additive_dates %} · additive{% endif %}
+      </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  var existing = {{ existing_dates|tojson }};
+  var dateInput = document.getElementById('dateInput');
+  var box       = document.getElementById('overwriteBox');
+  var dateSpan  = document.getElementById('overwriteDate');
+  var chk       = document.getElementById('confirmChk');
+  var btn       = document.getElementById('submitBtn');
+
+  function normDate(raw){
+    raw = (raw || '').trim();
+    var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return raw;
+    m = raw.match(/^(\d{2})[./-](\d{2})[./-](\d{4})$/);
+    if (m) return m[3] + '-' + m[2] + '-' + m[1];
+    return null;
+  }
+
+  function refresh(){
+    var d = normDate(dateInput.value);
+    if (d && existing.indexOf(d) >= 0) {
+      box.style.display = 'block';
+      dateSpan.textContent = d;
+      if (!chk.checked) {
+        btn.textContent = 'Tick to confirm, then Upload';
+      } else {
+        btn.textContent = 'Upload (replace existing)';
+      }
+    } else {
+      box.style.display = 'none';
+      chk.checked = false;
+      btn.textContent = 'Upload';
+    }
+  }
+
+  dateInput.addEventListener('input', refresh);
+  chk.addEventListener('change', refresh);
+  refresh();
+})();
+</script>
+
+{% endblock %}
