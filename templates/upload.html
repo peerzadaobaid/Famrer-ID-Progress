@@ -1,28 +1,64 @@
-{% extends "base.html" %}
-{% block title %}Upload snapshot{% endblock %}
-{% block content %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload snapshot — Farmer ID Progress</title>
+  {% include "_base_styles.html" ignore missing %}
+  <style>
+    body { background:#f3f6fb; color:#1f2937; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; }
+    .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+            padding:22px 26px; box-shadow:0 1px 3px rgba(0,0,0,.04); margin-bottom:18px; }
+    .card h2, .card h3 { color:#0b2447; margin:0 0 10px 0; }
+    .mut { color:#4b5563; }
+    .lbl { display:block; font-size:12px; letter-spacing:.5px; color:#6b7280; margin-bottom:4px; }
+    .inp { width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px;
+           background:#eef4ff; font-size:15px; box-sizing:border-box; }
+    .inp-file { background:#fff; font-size:14px; }
+    .btn { background:#0b2447; color:#fff; padding:11px 20px; border:none; border-radius:6px;
+           font-weight:600; font-size:15px; cursor:pointer; }
+    .btn:hover { background:#143566; }
+    .ok { margin:16px 0; padding:12px 14px; border:1px solid #c3e6cb;
+          background:#d4edda; color:#155724; border-radius:6px; }
+    .err { margin:16px 0; padding:12px 14px; border:1px solid #f5c6cb;
+           background:#f8d7da; color:#721c24; border-radius:6px; }
+    .warn { margin:12px 0; padding:12px 14px; border:1px solid #f0c674;
+            background:#fff8e8; color:#7a5b14; border-radius:6px; }
+    .addbox { display:block; margin:16px 0; padding:12px 14px; border:1px dashed #c99;
+              background:#fff8e8; border-radius:6px; cursor:pointer; color:#7a5b14; }
+    .pill { padding:4px 10px; border:1px solid #cbd5e1; border-radius:999px;
+            background:#f1f5f9; color:#334155; font-size:13px; display:inline-block;
+            margin:2px; }
+    .pill.addpill { background:#fff3cd; border-color:#f0c674; color:#7a5b14; }
+    .nav { background:#0b2447; color:#fff; padding:10px 20px; }
+    .nav a { color:#fff; text-decoration:none; margin-right:18px; font-weight:500; }
+    .nav a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="/">Dashboard</a>
+  <a href="/upload">Upload</a>
+  <a href="/admin">Admin</a>
+</div>
+
+<div class="wrap">
 
 {% if saved %}
-  <div style="margin:16px 0; padding:12px 14px; border:1px solid #c3e6cb;
-              background:#d4edda; color:#155724; border-radius:6px;">
-    <strong>Saved:</strong> {{ saved }}
-    {% if replaced_date %}
-      &nbsp;·&nbsp; Replaced the earlier snapshot for <strong>{{ replaced_date }}</strong>.
-    {% endif %}
+  <div class="ok"><strong>Saved:</strong> {{ saved }}
+    {% if replaced_date %} &nbsp;·&nbsp; Replaced the earlier snapshot for <strong>{{ replaced_date }}</strong>.{% endif %}
   </div>
 {% endif %}
 
 {% if error %}
-  <div style="margin:16px 0; padding:12px 14px; border:1px solid #f5c6cb;
-              background:#f8d7da; color:#721c24; border-radius:6px;">
-    <strong>Problem:</strong> {{ error }}
-  </div>
+  <div class="err"><strong>Problem:</strong> {{ error }}</div>
 {% endif %}
 
-<div style="max-width:900px; margin:0 auto; background:#fff; border:1px solid #e5e7eb;
-            border-radius:10px; padding:22px 26px; box-shadow:0 1px 3px rgba(0,0,0,.04);">
-  <h2 style="margin:0 0 6px 0; color:#0b2447;">New daily snapshot</h2>
-  <p style="color:#4b5563; margin:0 0 14px 0;">
+<div class="card">
+  <h2>New daily snapshot</h2>
+  <p class="mut">
     Upload the CSV exactly as exported from the AGRISTACK portal. Pick the date
     the snapshot represents — the portal diffs this against the previous day to
     compute additions.
@@ -30,15 +66,12 @@
 
   <form method="POST" enctype="multipart/form-data" id="uploadForm">
 
-    <!-- Overwrite confirmation (shown by JS when date collides) -->
-    <div id="overwriteBox" style="display:none; margin:12px 0; padding:12px 14px;
-                border:1px solid #f0c674; background:#fff8e8; color:#7a5b14;
-                border-radius:6px;">
+    <div id="overwriteBox" class="warn" style="display:none;">
       &#9888; A snapshot for <strong id="overwriteDate"></strong> already exists.
       If you continue, that one will be replaced. The older version stays in
       GitHub commit history and can be restored from there if needed.
       <div style="margin-top:8px;">
-        <label style="color:#7a5b14; font-weight:600; cursor:pointer;">
+        <label style="font-weight:600; cursor:pointer;">
           <input type="checkbox" id="confirmChk" name="confirm_overwrite" value="yes">
           Yes, replace it
         </label>
@@ -46,29 +79,20 @@
     </div>
 
     <div style="margin:14px 0;">
-      <label style="display:block; font-size:12px; letter-spacing:.5px;
-                    color:#6b7280; margin-bottom:4px;">SNAPSHOT DATE (DD-MM-YYYY)</label>
-      <input type="text" name="date" id="dateInput"
-             value="{{ request.form.date or '' }}"
-             placeholder="dd-mm-yyyy"
-             style="width:100%; padding:10px 12px; border:1px solid #d1d5db;
-                    border-radius:6px; background:#eef4ff; font-size:15px;">
+      <label class="lbl">SNAPSHOT DATE (DD-MM-YYYY)</label>
+      <input type="text" name="date" id="dateInput" class="inp"
+             value="{{ request.form.date or '' }}" placeholder="dd-mm-yyyy">
     </div>
 
     <div style="margin:14px 0;">
-      <label style="display:block; font-size:12px; letter-spacing:.5px;
-                    color:#6b7280; margin-bottom:4px;">CSV FILE</label>
-      <input type="file" name="csv" accept=".csv"
-             style="width:100%; padding:10px 12px; border:1px solid #d1d5db;
-                    border-radius:6px; background:#fff; font-size:14px;">
+      <label class="lbl">CSV FILE</label>
+      <input type="file" name="csv" accept=".csv" class="inp inp-file">
     </div>
 
     <!-- v36: additive / delta-only upload -->
-    <label style="display:block; margin:16px 0; padding:12px 14px;
-                  border:1px dashed #c99; background:#fff8e8; border-radius:6px;
-                  cursor:pointer;">
+    <label class="addbox">
       <input type="checkbox" name="additive" value="yes" style="margin-right:6px;">
-      <strong style="color:#7a5b14;">Treat this file as additions-only (delta)</strong><br>
+      <strong>Treat this file as additions-only (delta)</strong><br>
       <small style="color:#555;">
         Tick ONLY when the uploaded CSV contains just today's new rows (not a
         full cumulative export). The counts will be <em>added</em> to the
@@ -76,46 +100,39 @@
       </small>
     </label>
 
-    <button type="submit" id="submitBtn"
-            style="background:#0b2447; color:#fff; padding:11px 20px;
-                   border:none; border-radius:6px; font-weight:600; font-size:15px;
-                   cursor:pointer;">
-      Upload
-    </button>
+    <button type="submit" id="submitBtn" class="btn">Upload</button>
   </form>
 </div>
 
-<div style="max-width:900px; margin:18px auto 0; background:#fff; border:1px solid #e5e7eb;
-            border-radius:10px; padding:18px 24px;">
-  <h3 style="margin:0 0 10px 0; color:#0b2447;">What happens next</h3>
+<div class="card">
+  <h3>What happens next</h3>
   <ol style="margin:0; padding-left:20px; color:#374151; line-height:1.6;">
     <li>The CSV is saved as <code>data/YYYY-MM-DD.csv</code> and parsed.</li>
-    <li>If <code>GH_TOKEN</code> + <code>GH_REPO</code> are set on Render, the file
-        is committed to the GitHub repo and Render auto-redeploys.</li>
-    <li>If a snapshot already exists for that date, it is replaced (overwrite)
-        — old version stays in GitHub history.</li>
-    <li>If "additions-only" is ticked, a sidecar <code>.additive</code> marker is
-        saved next to the CSV so the dashboard SUMS it onto the previous
+    <li>If <code>GH_TOKEN</code> + <code>GH_REPO</code> are set on Render, the
+        file is committed to the GitHub repo and Render auto-redeploys.</li>
+    <li>If a snapshot already exists for that date, it is replaced — old
+        version stays in GitHub history.</li>
+    <li>If "additions-only" is ticked, a sidecar <code>.additive</code> marker
+        is saved next to the CSV so the dashboard SUMS it onto the previous
         cumulative instead of overlaying.</li>
   </ol>
 </div>
 
 {% if existing_dates %}
-<div style="max-width:900px; margin:18px auto 0; background:#fff; border:1px solid #e5e7eb;
-            border-radius:10px; padding:18px 24px;">
-  <h3 style="margin:0 0 10px 0; color:#0b2447;">Snapshots already uploaded
+<div class="card">
+  <h3>Snapshots already uploaded
     <span style="font-weight:400; color:#6b7280;">({{ existing_dates|length }})</span></h3>
-  <div style="display:flex; flex-wrap:wrap; gap:6px;">
+  <div>
     {% for d in existing_dates %}
-      <span style="padding:4px 10px; border:1px solid #cbd5e1; border-radius:999px;
-                   background:{% if d in additive_dates %}#fff3cd{% else %}#f1f5f9{% endif %};
-                   color:#334155; font-size:13px;">
+      <span class="pill {% if d in additive_dates %}addpill{% endif %}">
         {{ d }}{% if d in additive_dates %} · additive{% endif %}
       </span>
     {% endfor %}
   </div>
 </div>
 {% endif %}
+
+</div><!-- /wrap -->
 
 <script>
 (function(){
@@ -140,11 +157,7 @@
     if (d && existing.indexOf(d) >= 0) {
       box.style.display = 'block';
       dateSpan.textContent = d;
-      if (!chk.checked) {
-        btn.textContent = 'Tick to confirm, then Upload';
-      } else {
-        btn.textContent = 'Upload (replace existing)';
-      }
+      btn.textContent = chk.checked ? 'Upload (replace existing)' : 'Tick to confirm, then Upload';
     } else {
       box.style.display = 'none';
       chk.checked = false;
@@ -158,4 +171,5 @@
 })();
 </script>
 
-{% endblock %}
+</body>
+</html>
