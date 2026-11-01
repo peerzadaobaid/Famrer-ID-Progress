@@ -467,6 +467,41 @@ def _merge(dst, src):
             "approved": max(v["approved"], prev.get("approved", 0)),
         }
 
+def _merge_additive(dst, src):
+    """ADDITIVE merge (v36). The uploaded file is a DELTA — just today's new rows,
+    not the full cumulative state. Each snapshot village count is ADDED to the
+    running cumulative. Used when a `.additive` sidecar marker is present next to
+    the CSV. Villages not in src keep their previous (usually baseline) numbers.
+    """
+    for k, v in src.items():
+        prev = dst.get(k, {})
+        dst[k] = {
+            "tehsil": prev.get("tehsil", v["tehsil"]),
+            "village": prev.get("village", v["village"]),
+            "issued":   prev.get("issued", 0)   + v["issued"],
+            "approved": prev.get("approved", 0) + v["approved"],
+        }
+
+def _additive_marker_path(csv_path):
+    """Return the sibling marker path for a snapshot CSV. The marker is a tiny
+    file that lives next to the CSV: data/YYYY-MM-DD.additive. Its presence
+    (and non-empty content) tells build_state() to treat the CSV as a
+    delta-only file (sum onto cumulative) instead of a full cumulative
+    snapshot (max/overlay).
+    """
+    base, _ = os.path.splitext(csv_path)
+    return base + ".additive"
+
+def _is_additive_snapshot(csv_path):
+    """True iff a non-empty .additive marker sits next to this snapshot. We
+    check size rather than mere existence because clearing the marker through
+    GitHub (which has no simple DELETE) rewrites it to an empty file."""
+    mp = _additive_marker_path(csv_path)
+    try:
+        return os.path.exists(mp) and os.path.getsize(mp) > 0
+    except OSError:
+        return False
+
 def build_state():
     """Load baseline + all snapshots. Returns:
       - current_counts: {key: {issued, approved, ...}}        -> latest known total per village
@@ -492,10 +527,15 @@ def build_state():
         except Exception as e:
             errors.append(str(e))
             continue
-        # Snapshot is a cumulative state (all registered farmers as of that date),
-        # so overlay it onto cumulative. Villages not in the snapshot keep their
-        # previous (usually baseline) numbers.
-        _merge(cumulative, snap)
+        # v36 — If a non-empty .additive sidecar marker sits next to this
+        # snapshot, the uploaded CSV is a DELTA (today's new rows only), so
+        # add it onto the running cumulative. Otherwise treat it as a full
+        # cumulative snapshot and overlay via max() as before. Villages not
+        # in the snapshot keep their previous (usually baseline) numbers.
+        if _is_additive_snapshot(path):
+            _merge_additive(cumulative, snap)
+        else:
+            _merge(cumulative, snap)
         per_date[date] = {k: dict(v) for k, v in cumulative.items()}
         sorted_dates.append(date)
     return cumulative, per_date, sorted_dates, errors
@@ -2043,10 +2083,12 @@ def upload():
     replaced_date = None  # set when a successful upload replaced an existing snapshot
     if request.method == "POST":
         date = _parse_date_input(request.form.get("date", ""))
+        additive = (request.form.get("additive") == "yes")  # v36 — delta-file mode
         if not date or date <= BASELINE_DATE:
             error = "Date must be in dd-mm-yyyy and after {}.".format(BASELINE_DATE)
         else:
             out_path = os.path.join(DATA_DIR, date + ".csv")
+            marker_path = _additive_marker_path(out_path)
             already_exists = os.path.exists(out_path)
             # If overwriting, the client must confirm (the JS on the page sets this
             # hidden flag after the admin acknowledges the warning).
@@ -2066,26 +2108,73 @@ def upload():
                         os.remove(out_path)
                         error = "That CSV didn't parse: {}".format(e)
                     else:
+                        # v36 — write / remove the .additive sidecar marker.
+                        # Checking the box on a one-off delta upload creates it;
+                        # a normal cumulative upload on the same date clears it.
+                        marker_existed = os.path.exists(marker_path)
+                        if additive:
+                            with open(marker_path, "w", encoding="utf-8") as mf:
+                                mf.write("additive\n")
+                        elif marker_existed:
+                            try: os.remove(marker_path)
+                            except OSError: pass
                         saved = date + ".csv"
+                        if additive:
+                            saved += " (delta-only / additive)"
                         if already_exists:
                             replaced_date = date
                         if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
                             try:
                                 verb = "replace" if already_exists else "add"
+                                tag = " (additive)" if additive else ""
                                 commit_to_github(out_path, "data/" + date + ".csv",
-                                                 "data: {} snapshot for {}".format(verb, date))
+                                                 "data: {} snapshot for {}{}".format(verb, date, tag))
+                                # v36 — also sync the marker file to GitHub.
+                                if additive:
+                                    commit_to_github(marker_path,
+                                                     "data/" + date + ".additive",
+                                                     "data: mark {} as additive/delta".format(date))
+                                elif marker_existed:
+                                    # Push an empty-ish placeholder so Render sees
+                                    # the marker is gone on next deploy. GitHub has
+                                    # no "delete file" via the simple PUT API, so
+                                    # we rewrite the marker to a disabled stub.
+                                    try:
+                                        tmp = marker_path + ".clear"
+                                        with open(tmp, "w", encoding="utf-8") as tf:
+                                            tf.write("")
+                                        commit_to_github(tmp,
+                                                         "data/" + date + ".additive",
+                                                         "data: clear additive marker for {}".format(date))
+                                        os.remove(tmp)
+                                    except Exception:
+                                        pass
                                 saved += " (committed to GitHub)"
                             except Exception as e:
                                 error = "Saved locally but GitHub push failed: {}".format(e)
+                        # v36 — any change to a snapshot or its marker invalidates
+                        # the parse cache for that file, so build_state re-reads it.
+                        try:
+                            _snapshot_parse_cache.pop(out_path, None)
+                        except Exception:
+                            pass
+                        _invalidate_dashboard_cache()
                         # Fresh data → refresh the public mirror
                         _publish_mirror_quietly()
-    # Collect existing snapshot dates for the UI
+    # Collect existing snapshot dates for the UI. existing_dates is kept as a
+    # list of plain date strings for backward compatibility with earlier
+    # templates. additive_dates is a parallel set of dates that have an
+    # .additive marker (so the template can tag them if it chooses).
     existing = []
-    for d, _ in discover_snapshots():
+    additive_dates = set()
+    for d, path in discover_snapshots():
         existing.append(d)
+        if _is_additive_snapshot(path):
+            additive_dates.add(d)
     return render_template("upload.html",
                            baseline_date=BASELINE_DATE,
                            existing_dates=existing,
+                           additive_dates=additive_dates,
                            replaced_date=replaced_date,
                            error=error, saved=saved)
 
