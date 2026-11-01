@@ -24,119 +24,52 @@ from flask import Flask, Response, abort, render_template, request, jsonify, ses
 # These are frozen in code; edit here (and commit) to change them.
 # =========================================================================
 
-BASELINE_LABEL = "through 31 Oct 2026"
-BASELINE_DATE = "2026-10-31"   # the baseline is parked on this date
+BASELINE_LABEL = "through 30 Sept 2026"
+BASELINE_DATE = "2026-09-30"   # the baseline is parked on this date
 BASELINE_ENABLED = True
 
-# v35 — baseline rolled forward from Sep 30 to Oct 31 (AGRISTACK portal only
-# shows the last month, so we snapshot the final Oct total and resume daily
-# diffs from Nov 1 onwards). Variable name kept as _SEP30 to minimise churn —
-# it is just the "frozen baseline" dict regardless of the date.
-# Per-village totals: "Tehsil||Village" -> [issued, approved]
+# Pre-Oct per-village totals: "Tehsil||Village" -> [issued, approved]
 BASELINE_THROUGH_SEP30 = {
-    # ---------- Ajas (1 villages) ----------
-    "Ajas||Ajas":                                                [ 1035,   779],
-    # ---------- Aloosa (6 villages) ----------
-    "Aloosa||Aloosa":                                            [  506,   143],
-    "Aloosa||Ashtangoo":                                         [   44,    32],
-    "Aloosa||Kehnoosa":                                          [  266,   127],
-    "Aloosa||Malangam":                                          [  285,   127],
-    "Aloosa||Mangnipora":                                        [  721,   558],
-    "Aloosa||Quil Muqam":                                        [  255,   104],
-    # ---------- Bandipora (32 villages) ----------
-    "Bandipora||Ahemshreif":                                     [  167,    11],
-    "Bandipora||Ajar":                                           [  108,     0],
-    "Bandipora||Aragam":                                         [  487,    15],
-    "Bandipora||Arin Dard Pora":                                 [  342,     0],
-    "Bandipora||Athwatoo":                                       [  318,   244],
-    "Bandipora||Ayatmulla":                                      [  296,    33],
-    "Bandipora||Bandipora":                                      [  239,     0],
-    "Bandipora||Bhutto":                                         [  137,    35],
-    "Bandipora||Bonakoot":                                       [  259,     0],
-    "Bandipora||Chittibanday":                                   [  150,     0],
-    "Bandipora||Gamroo":                                         [  309,    29],
-    "Bandipora||Garoora":                                        [  571,    82],
-    "Bandipora||Gund Dachina":                                   [  298,    26],
-    "Bandipora||Gundipora Rampora":                              [  444,    42],
-    "Bandipora||Kaloosa Nathpora":                               [  206,     0],
-    "Bandipora||Khayar":                                         [  417,    74],
-    "Bandipora||Konan Baba Gund":                                [  277,     0],
-    "Bandipora||Kudara":                                         [  509,    80],
-    "Bandipora||Lawaypora":                                      [  446,    81],
-    "Bandipora||Lowdara":                                        [  231,    42],
-    "Bandipora||Mantrigam":                                      [  345,     0],
-    "Bandipora||Nadihal":                                        [  538,    40],
-    "Bandipora||Nass":                                           [  241,    29],
-    "Bandipora||Onagam":                                         [  708,   111],
-    "Bandipora||Panjigam":                                       [  424,    64],
-    "Bandipora||Papachan":                                       [    1,     0],
-    "Bandipora||Qazipora Putushai":                              [  203,     0],
-    "Bandipora||Shamthan":                                       [    1,     0],
-    "Bandipora||Soner Wani":                                     [  295,    39],
-    "Bandipora||Sumlarshokbaba":                                 [  131,     0],
-    "Bandipora||Watapora":                                       [  499,    75],
-    "Bandipora||Weven":                                          [    2,     1],
-    # ---------- Gurez (7 villages) ----------
-    "Gurez||Badwan":                                             [  519,   454],
-    "Gurez||Dawar":                                              [  336,   280],
-    "Gurez||Gulshanpora":                                        [  399,   332],
-    "Gurez||Kanzalwan Nail":                                     [  248,   216],
-    "Gurez||Markoot":                                            [  317,   271],
-    "Gurez||Mastan Khopri":                                      [    1,     1],
-    "Gurez||Shah Pora - Achoora (Churwan)":                      [  545,   445],
-    # ---------- Hajin (19 villages) ----------
-    "Hajin||Baharabad":                                          [  267,    44],
-    "Hajin||Chandergeern":                                       [   48,    10],
-    "Hajin||Gulshanpora":                                        [  270,   119],
-    "Hajin||Gund i Prang":                                       [  258,     9],
-    "Hajin||Gundi Boon":                                         [  241,   183],
-    "Hajin||Gundi Jahangir":                                     [  491,   147],
-    "Hajin||Gundi Saderkote":                                    [  830,   425],
-    "Hajin||Hajin":                                              [  242,    54],
-    "Hajin||Kani Pora":                                          [  223,   102],
-    "Hajin||Kosumbagh":                                          [  161,    28],
-    "Hajin||Madwan":                                             [    1,     1],
-    "Hajin||Naidkhai":                                           [   57,    19],
-    "Hajin||Poshwari":                                           [  367,    44],
-    "Hajin||Rakh i Hajin":                                       [  291,    71],
-    "Hajin||Sadunara":                                           [  193,    53],
-    "Hajin||Sari Hari Karan Gund":                               [  107,    53],
-    "Hajin||Shah Gund":                                          [  204,    85],
-    "Hajin||Vijipara":                                           [  376,   196],
-    "Hajin||Zoonipora":                                          [    1,     1],
-    # ---------- Sumbal (19 villages) ----------
-    "Sumbal||Asham":                                             [  621,   237],
-    "Sumbal||Chewa":                                             [    2,     0],
-    "Sumbal||Ganastan":                                          [  592,   276],
-    "Sumbal||Gund i Khalil":                                     [  457,   176],
-    "Sumbal||Gund i Nowgam":                                     [    5,     0],
-    "Sumbal||Hilalabad":                                         [  518,   205],
-    "Sumbal||Malik Pora":                                        [    2,     0],
-    "Sumbal||NOWGAM":                                            [  251,   119],
-    "Sumbal||Odina":                                             [  476,   113],
-    "Sumbal||Rakh Shilvat":                                      [  690,   165],
-    "Sumbal||Rakh Sultan Pora":                                  [  558,   357],
-    "Sumbal||Rakh-i-Asham":                                      [  337,    69],
-    "Sumbal||Sarai Dangarpora":                                  [  708,   218],
-    "Sumbal||Shadi Pora":                                        [    3,     0],
-    "Sumbal||Shilvat":                                           [    1,     1],
-    "Sumbal||Sumbal Inderkote":                                  [  380,   180],
-    "Sumbal||Trigam":                                            [  325,    85],
-    "Sumbal||Wahid pora":                                        [  324,   249],
-    "Sumbal||Zal Pora":                                          [    2,     0],
-    # ---------- Tulail (12 villages) ----------
-    "Tulail||Abdullian":                                         [    2,     2],
-    "Tulail||Baduaab":                                           [  248,    96],
-    "Tulail||Barnaie":                                           [  148,    32],
-    "Tulail||Budugam":                                           [  297,   265],
-    "Tulail||Buglinder":                                         [  169,   140],
-    "Tulail||Dengithal":                                         [   70,    55],
-    "Tulail||Gujran":                                            [  160,   144],
-    "Tulail||Jurnial":                                           [  134,    93],
-    "Tulail||Malangam":                                          [    1,     1],
-    "Tulail||Neeru":                                             [  206,   116],
-    "Tulail||Saradaab":                                          [  174,   132],
-    "Tulail||Zedgey":                                            [   51,    31],
+    "Ajas||S.K. Payeen": [230, 159],
+    "Aloosa||Ashtangoo": [286, 3],
+    "Bandipora||Brar": [254, 187],
+    "Bandipora||Chak Arsala Khan": [216, 185],
+    "Bandipora||Chak Reshipora": [59, 6],
+    "Bandipora||Chandaji": [67, 51],
+    "Bandipora||Chuntimulla": [282, 187],
+    "Bandipora||Dachigam": [98, 82],
+    "Bandipora||Gundi Qasier": [138, 107],
+    "Bandipora||Kharpora": [183, 154],
+    "Bandipora||Labkachal": [58, 37],
+    "Bandipora||Papachan": [153, 116],
+    "Bandipora||Shamthan": [88, 43],
+    "Bandipora||Takiya Ahmad Shah": [148, 114],
+    "Bandipora||Weven": [146, 11],
+    "Gurez||Khandiyal": [237, 192],
+    "Gurez||Koragbal": [59, 55],
+    "Gurez||Mastan Khopri": [193, 158],
+    "Hajin||Gulabwari": [1, 1],
+    "Hajin||Gund-i-Balkh": [148, 118],
+    "Hajin||Gund-i-Ramzan": [7, 6],
+    "Hajin||Madwan": [194, 150],
+    "Hajin||Tangpora": [105, 92],
+    "Hajin||Zoonipora": [125, 93],
+    "Sonawari||Chewa": [394, 270],
+    "Sonawari||Gaad Khud": [264, 186],
+    "Sonawari||Gund i Nowgam": [396, 237],
+    "Sonawari||Malik Pora": [152, 115],
+    "Sonawari||Najin": [198, 155],
+    "Sonawari||Shadi Pora": [385, 254],
+    "Sonawari||Shilvat": [231, 182],
+    "Sonawari||Zal Pora": [255, 197],
+    "Tulail||Abdullian": [70, 19],
+    "Tulail||Gund Gul Sheikh": [59, 54],
+    "Tulail||Hussangam": [160, 142],
+    "Tulail||Kilshay Payeen": [95, 32],
+    "Tulail||Malangam": [77, 68],
+    "Tulail||Manz Gund": [92, 48],
+    "Tulail||Puranatulail": [102, 66],
+    "Tulail||Wazirthal": [58, 50],
 }
 
 DEFAULT_TARGETS = [
@@ -329,9 +262,10 @@ VILLAGE_ALIAS = {
     "ZALPORA":                   "ZAL PORA",
     "MANZGUND":                  "MANZ GUND",
     "PURANA TULAIL":             "PURANATULAIL",
-    # v35 — spellings seen in the Oct-end AGRISTACK CSV that collided with
-    # the portal canonical names. Baking them into VILLAGE_ALIAS avoids the
-    # need to re-reconcile via the admin page.
+    # v35 — new CSV spellings that appeared in the end-of-Oct AGRISTACK export
+    # and were causing duplicate rows on the dashboard. Baking them here means
+    # no admin reconciliation is needed — they merge into the portal canonical
+    # names automatically on the next page load.
     "ARIN DARD PORA":            "ARINDARDPORA",
     "RAKH I ASHAM":              "RKHI ASHAM",
     "KONAN BABA GUND":           "KONAN BABAGUND",
@@ -2508,7 +2442,7 @@ def download_csv():
     w = csv.writer(buf)
     w.writerow(["Tehsil", "Village", "Target", "Total Issued", "Approved",
                 "Issued through 30 Sep", "Approved through 30 Sep",
-                "Added since 1 Nov", "Issue %", "Approval %",
+                "Added since 1 Oct", "Issue %", "Approval %",
                 "First Bucket", "Camp Director", "Director Phone"])
     for t in state["tehsils"]:
         for v in t["villages"]:
@@ -2569,7 +2503,7 @@ def download_xlsx():
     # --- Sheet 1: Tehsil Summary ---
     ws = wb.active
     ws.title = "Tehsil Summary"
-    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", "Added since 1 Nov",
+    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", "Added since 1 Oct",
                "Issue %", "Approved", "Approval %"]
     rows = []
     gT = gI = gA = gS = 0
@@ -2583,7 +2517,7 @@ def download_xlsx():
     # --- Sheet 2: Village Details (all villages) ---
     ws = wb.create_sheet("Village Details")
     headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Approved",
-               "Issued thru 31 Oct", "Approved thru 31 Oct", "Added since 1 Nov",
+               "Issued thru 30 Sep", "Approved thru 30 Sep", "Added since 1 Oct",
                "Issue %", "Approval %", "First Bucket", "Camp Director", "Phone"]
     rows = []
     n = 1
@@ -2601,7 +2535,7 @@ def download_xlsx():
 
     # --- Sheet 3: Camp Director Villages (59) ---
     ws = wb.create_sheet("Camp Director Villages")
-    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Added since 1 Nov",
+    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Added since 1 Oct",
                "Issue %", "Approved", "Approval %", "Camp Director", "Phone"]
     rows = []
     n = 1
@@ -2620,7 +2554,7 @@ def download_xlsx():
     # --- Sheet 4: Camp Director Leaderboard ---
     ws = wb.create_sheet("Camp Director Leaderboard")
     headers = ["#", "Director", "Phone", "Tehsil", "Villages Managed", "Village Names",
-               "Target", "Total Issued", "Added since 1 Nov", "Issue %", "Approved", "Approval %"]
+               "Target", "Total Issued", "Added since 1 Oct", "Issue %", "Approved", "Approval %"]
     rows = []
     for i, d in enumerate(data["director_leaderboard"], 1):
         rows.append([i, d["director"], d["phone"], d["tehsil"], d["village_count"],
