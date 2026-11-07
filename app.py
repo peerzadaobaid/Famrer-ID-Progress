@@ -536,16 +536,27 @@ def _merge(dst, src):
 
 def build_state():
     """Load baseline + all snapshots. Returns:
-      - current_counts: {key: {issued, approved, ...}}        -> latest known total per village
-      - per_date_counts: {YYYY-MM-DD: {key: {issued,approved}}} -> cumulative at that date (post-overlay)
-      - sorted_dates: [YYYY-MM-DD]   -> baseline date first, then snapshot dates
+      - current_counts: {key: {issued, approved, ...}} -> latest total per village
+      - per_date_counts: {YYYY-MM-DD: {key: {issued,approved}}} -> cumulative at that date
+      - sorted_dates: [YYYY-MM-DD] -> baseline date first, then snapshot dates
+
+    v37.1 — Monthly baselines are month-only enrollments (user's Option A).
+    AGRISTACK daily CSVs are ALSO month-only (they reset at month start and
+    grow through the month). So the correct math is:
+
+        cumulative_per_village = sum(monthly_baselines) + max(daily_snapshots)
+
+    Across daily snapshots within one month, snapshots are max-merged (they
+    grow monotonically as the month progresses). The running max is then
+    SUMMED onto the baseline — not max-merged — so newly-added daily rows
+    actually show up on the dashboard.
     """
     base = baseline_counts()
     baseline_date = effective_baseline_date()
     per_date = {baseline_date: {k: dict(v) for k, v in base.items()}}
-    cumulative = {k: dict(v) for k, v in base.items()}
     sorted_dates = [baseline_date]
     errors = []
+    current_month_max = {}  # running max across daily snapshots (month-only)
     for date, path in discover_snapshots():
         try:
             mt = os.path.getmtime(path)
@@ -558,11 +569,29 @@ def build_state():
         except Exception as e:
             errors.append(str(e))
             continue
-        # Daily snapshots are cumulative within the current month (AGRISTACK
-        # resets at month start). max-merge keeps per-day additions non-negative.
-        _merge(cumulative, snap)
-        per_date[date] = {k: dict(v) for k, v in cumulative.items()}
+        # Daily snapshots within the current month are cumulative-within-month
+        # and grow day over day, so running max keeps them non-decreasing.
+        _merge(current_month_max, snap)
+        # Day N cumulative = baseline + running-max of current-month daily snaps.
+        day_cum = {}
+        for k, v in base.items():
+            day_cum[k] = {
+                "tehsil":   v["tehsil"],
+                "village":  v["village"],
+                "issued":   v["issued"],
+                "approved": v["approved"],
+            }
+        for k, v in current_month_max.items():
+            prev = day_cum.get(k, {})
+            day_cum[k] = {
+                "tehsil":   prev.get("tehsil", v["tehsil"]),
+                "village":  prev.get("village", v["village"]),
+                "issued":   prev.get("issued", 0)   + v["issued"],
+                "approved": prev.get("approved", 0) + v["approved"],
+            }
+        per_date[date] = day_cum
         sorted_dates.append(date)
+    cumulative = per_date[sorted_dates[-1]] if sorted_dates else {k: dict(v) for k, v in base.items()}
     return cumulative, per_date, sorted_dates, errors
 
 
