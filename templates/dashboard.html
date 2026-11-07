@@ -268,7 +268,6 @@
               <th class="num" style="white-space:normal;max-width:70px">Total Villages</th>
               <th class="num" style="white-space:normal;max-width:120px">Target</th>
               <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
-              <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="tehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
               <th class="num pending-col pending-col-tehsil" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
@@ -302,7 +301,6 @@
               <th>Village</th>
               <th class="num">Target</th>
               <th class="num">Total Issued</th>
-              <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="villageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
               <th class="num pending-col pending-col-tehsil" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
@@ -334,7 +332,6 @@
               <th class="num" style="white-space:normal;max-width:70px">Villages</th>
               <th class="num" style="white-space:normal;max-width:95px">Target</th>
               <th class="num" style="white-space:normal;max-width:95px">Total Issued</th>
-              <th class="num" style="white-space:normal;max-width:95px">Issued since 1 Oct</th>
               <th class="num" id="cdTehsilAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
               <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
@@ -369,7 +366,6 @@
               <th class="num">Villages</th>
               <th class="num">Target</th>
               <th class="num">Total Issued</th>
-              <th class="num">Since 1 Oct</th>
               <th class="num" id="cdDirectorAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
               <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
@@ -403,7 +399,6 @@
               <th>Village</th>
               <th class="num">Target</th>
               <th class="num">Total Issued</th>
-              <th class="num">Since 1 Oct</th>
               <th class="num" id="cdVillageAddRangeHdr" style="white-space:normal;max-width:100px;background:#fff8ee;color:#a86416">Additions between</th>
               <th class="num pending-col" style="white-space:normal;max-width:90px;background:#fef2f2;color:#a63434">Pending Entries</th>
               <th>Issue %</th>
@@ -498,7 +493,7 @@ function renderTehsils(){
     return pb - pa;
   });
   for(var i=0;i<tehsils.length;i++){
-    var t=tehsils[i]; var since=t.issued-(t.issuedBaseline||0); var ar=tehsilAddInRange(t,addFrom,addTo); totAR+=ar;
+    var t=tehsils[i]; var ar=tehsilAddInRange(t,addFrom,addTo); totAR+=ar;
     var pend=t.pending||0; totPend+=pend;
     var safe=t.tehsil.replace(/'/g,"\\'");
     body+='<tr class="clickable" onclick="showVillages(\''+safe+'\')">'
@@ -507,7 +502,6 @@ function renderTehsils(){
         +'<td class="num">'+(t.totalVillages||'—')+'</td>'
         +'<td class="num">'+t.target.toLocaleString()+'</td>'
         +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
-        +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
         +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
         +'<td style="text-align:center">'+pctCircle(t.issued,t.target)+'</td>'
@@ -515,15 +509,13 @@ function renderTehsils(){
         +'<td style="text-align:center">'+pctCircle(t.approved,t.issued,'green')+'</td>'
         +'</tr>';
   }
-  var gT=0,gI=0,gA=0,gB=0,gVR=0;
-  for(var i=0;i<DATA.tehsils.length;i++){ var t=DATA.tehsils[i]; gT+=t.target;gI+=t.issued;gA+=t.approved;gB+=(t.issuedBaseline||0);gVR+=t.totalVillages||0; }
-  var gS=gI-gB;
+  var gT=0,gI=0,gA=0,gVR=0;
+  for(var i=0;i<DATA.tehsils.length;i++){ var t=DATA.tehsils[i]; gT+=t.target;gI+=t.issued;gA+=t.approved;gVR+=t.totalVillages||0; }
   document.querySelector('#tehsilTable tbody').innerHTML=body;
   document.querySelector('#tehsilTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+gVR.toLocaleString()+'</td>'
     +'<td class="num">'+gT.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
-    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
     +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
     +'<td style="text-align:center">'+pctCircle(gI,gT)+'</td>'
@@ -543,7 +535,7 @@ function renderVillages(tehsilName){
   var vs=t.villages.slice().sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
   var body='',totAR=0,totPend=0;
   for(var j=0;j<vs.length;j++){
-    var v=vs[j]; var since=v.issued-(v.issuedBaseline||0); var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
+    var v=vs[j]; var ar=villageAddInRange(v,addFrom,addTo); totAR+=ar;
     var pend=v.pending||0; if(!v.firstBucket) totPend+=pend;
     var rowCls=v.firstBucket?' class="first-bucket-row"':'';
     var nbLabel = (DATA.newBatchStartLabel ? 'Started '+DATA.newBatchStartLabel : 'Started 20 Oct');
@@ -557,19 +549,16 @@ function renderVillages(tehsilName){
         +'<td><strong>'+esc(v.village)+'</strong>'+badge+'</td>'
         +'<td class="num">'+v.target.toLocaleString()+'</td>'
         +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
-        +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
         +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
         +pendCell
         +'<td>'+pctBar(v.issued,v.target)+'</td>'
         +'<td class="num">'+v.approved.toLocaleString()+'</td>'
         +'<td>'+pctBar(v.approved,v.issued)+'</td></tr>';
   }
-  var tIB=vs.reduce(function(s,v){return s+(v.issuedBaseline||0);},0); var tS=t.issued-tIB;
   document.querySelector('#villageTable tbody').innerHTML=body;
   document.querySelector('#villageTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+t.target.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+t.issued.toLocaleString()+'</strong></td>'
-    +'<td class="num" style="color:#1e88e5">'+(tS>0?'+':'')+tS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+totAR.toLocaleString()+'</strong></td>'
     +'<td class="num pending-col pending-col-tehsil" style="color:#a63434;background:#fef2f2"><strong>'+totPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(t.issued,t.target)+'</td>'
@@ -598,30 +587,28 @@ function cdCollect(){
 function renderCDTehsils(){
   var data=cdCollect(),body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,gPend=0,allSet={};
   for(var i=0;i<data.length;i++){
-    var t=data[i],tg=0,is=0,ap=0,bl=0,ar=0,pend=0,ds={};
-    for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; tg+=v.target;is+=v.issued;ap+=v.approved;bl+=v.issuedBaseline; ar+=villageAddInRange(v,addFrom,addTo); pend+=(v.pending||0); var k=cdNormName(v.dir.name); ds[k]=1; allSet[k]=1; }
-    var since=is-bl; var safe=t.tehsil.replace(/'/g,"\\'");
+    var t=data[i],tg=0,is=0,ap=0,ar=0,pend=0,ds={};
+    for(var j=0;j<t.villages.length;j++){ var v=t.villages[j]; tg+=v.target;is+=v.issued;ap+=v.approved; ar+=villageAddInRange(v,addFrom,addTo); pend+=(v.pending||0); var k=cdNormName(v.dir.name); ds[k]=1; allSet[k]=1; }
+    var safe=t.tehsil.replace(/'/g,"\\'");
     body+='<tr class="clickable" onclick="showCDDirectors(\''+safe+'\')">'
       +'<td>'+(i+1)+'</td><td><strong>'+esc(t.tehsil)+'</strong></td>'
       +'<td class="num">'+Object.keys(ds).length+'</td>'
       +'<td class="num">'+t.villages.length+'</td>'
       +'<td class="num">'+tg.toLocaleString()+'</td>'
       +'<td class="num"><strong>'+is.toLocaleString()+'</strong></td>'
-      +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
       +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
       +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
       +'<td>'+pctBar(is,tg,'orange')+'</td>'
       +'<td class="num">'+ap.toLocaleString()+'</td>'
       +'<td>'+pctBar(ap,is,'green')+'</td></tr>';
-    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=t.villages.length;gAR+=ar;gPend+=pend;
+    gT+=tg;gI+=is;gA+=ap;gV+=t.villages.length;gAR+=ar;gPend+=pend;
   }
-  var gD=Object.keys(allSet).length, gS=gI-gB;
-  document.querySelector('#cdTehsilTable tbody').innerHTML=body||'<tr><td colspan="12" style="text-align:center;color:#888;padding:30px">No camp-director data yet.</td></tr>';
+  var gD=Object.keys(allSet).length;
+  document.querySelector('#cdTehsilTable tbody').innerHTML=body||'<tr><td colspan="11" style="text-align:center;color:#888;padding:30px">No camp-director data yet.</td></tr>';
   document.querySelector('#cdTehsilTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+gD+'</td><td class="num">'+gV+'</td>'
     +'<td class="num">'+gT.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
-    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
     +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
@@ -660,10 +647,10 @@ function renderCDDirectors(tehsilName){
   });
   var body='',gT=0,gI=0,gA=0,gB=0,gV=0,gAR=0,gPend=0;
   for(var d=0;d<dirs.length;d++){
-    var dir=dirs[d]; var tg=0,is=0,ap=0,bl=0,ar=0,pend=0;
-    for(var k=0;k<dir.villages.length;k++){ tg+=dir.villages[k].target; is+=dir.villages[k].issued; ap+=dir.villages[k].approved; bl+=dir.villages[k].issuedBaseline; ar+=villageAddInRange(dir.villages[k],addFrom,addTo); pend+=(dir.villages[k].pending||0); }
-    gT+=tg;gI+=is;gA+=ap;gB+=bl;gV+=dir.villages.length;gAR+=ar;gPend+=pend;
-    var since=is-bl, multi=dir.villages.length>1;
+    var dir=dirs[d]; var tg=0,is=0,ap=0,ar=0,pend=0;
+    for(var k=0;k<dir.villages.length;k++){ tg+=dir.villages[k].target; is+=dir.villages[k].issued; ap+=dir.villages[k].approved; ar+=villageAddInRange(dir.villages[k],addFrom,addTo); pend+=(dir.villages[k].pending||0); }
+    gT+=tg;gI+=is;gA+=ap;gV+=dir.villages.length;gAR+=ar;gPend+=pend;
+    var multi=dir.villages.length>1;
     var safeT=tehsilName.replace(/'/g,"\\'"), safeK=dir.key.replace(/'/g,"\\'");
     var onclk=multi?' class="clickable" onclick="showCDVillages(\''+safeT+'\',\''+safeK+'\')"':'';
     var names=dir.villages.map(function(x){return esc(x.village);}).join(', ');
@@ -674,19 +661,16 @@ function renderCDDirectors(tehsilName){
       +'<td class="num" style="min-width:150px;max-width:260px;text-align:left">'+vcell+'</td>'
       +'<td class="num">'+tg.toLocaleString()+'</td>'
       +'<td class="num"><strong>'+is.toLocaleString()+'</strong></td>'
-      +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
       +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
       +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
       +'<td>'+pctBar(is,tg,'orange')+'</td>'
       +'<td class="num">'+ap.toLocaleString()+'</td>'
       +'<td>'+pctBar(ap,is,'green')+'</td></tr>';
   }
-  var gS=gI-gB;
   document.querySelector('#cdDirectorTable tbody').innerHTML=body;
   document.querySelector('#cdDirectorTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+gV+'</td><td class="num">'+gT.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
-    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
     +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'
@@ -708,26 +692,23 @@ function renderCDVillages(tehsilName,dirKey){
   if(!vs.length){ showCDDirectors(tehsilName); return; }
   // Sort villages under this director by issue % high → low
   vs.sort(function(a,b){ var pa=a.target>0?a.issued/a.target:-1; var pb=b.target>0?b.issued/b.target:-1; return pb-pa; });
-  var body='',gT=0,gI=0,gA=0,gB=0,gAR=0,gPend=0;
+  var body='',gT=0,gI=0,gA=0,gAR=0,gPend=0;
   for(var j=0;j<vs.length;j++){
-    var v=vs[j], since=v.issued-v.issuedBaseline, ar=villageAddInRange(v,addFrom,addTo), pend=v.pending||0;
-    gT+=v.target;gI+=v.issued;gA+=v.approved;gB+=v.issuedBaseline;gAR+=ar;gPend+=pend;
+    var v=vs[j], ar=villageAddInRange(v,addFrom,addTo), pend=v.pending||0;
+    gT+=v.target;gI+=v.issued;gA+=v.approved;gAR+=ar;gPend+=pend;
     body+='<tr><td>'+(j+1)+'</td><td><strong>'+esc(v.village)+'</strong></td>'
       +'<td class="num">'+v.target.toLocaleString()+'</td>'
       +'<td class="num"><strong>'+v.issued.toLocaleString()+'</strong></td>'
-      +'<td class="num" style="color:#1e88e5">'+(since>0?'+':'')+since.toLocaleString()+'</td>'
       +'<td class="num" style="color:#a86416;background:#fff8ee">'+ar.toLocaleString()+'</td>'
       +'<td class="num pending-col" style="color:#a63434;background:#fef2f2">'+pend.toLocaleString()+'</td>'
       +'<td>'+pctBar(v.issued,v.target,'orange')+'</td>'
       +'<td class="num">'+v.approved.toLocaleString()+'</td>'
       +'<td>'+pctBar(v.approved,v.issued,'green')+'</td></tr>';
   }
-  var gS=gI-gB;
   document.querySelector('#cdVillageTable tbody').innerHTML=body;
   document.querySelector('#cdVillageTable tfoot').innerHTML='<tr class="totals-row"><td colspan="2">TOTAL</td>'
     +'<td class="num">'+gT.toLocaleString()+'</td>'
     +'<td class="num"><strong>'+gI.toLocaleString()+'</strong></td>'
-    +'<td class="num" style="color:#1e88e5">'+(gS>0?'+':'')+gS.toLocaleString()+'</td>'
     +'<td class="num" style="color:#a86416;background:#fff8ee"><strong>'+gAR.toLocaleString()+'</strong></td>'
     +'<td class="num pending-col" style="color:#a63434;background:#fef2f2"><strong>'+gPend.toLocaleString()+'</strong></td>'
     +'<td>'+pctBar(gI,gT,'orange')+'</td>'

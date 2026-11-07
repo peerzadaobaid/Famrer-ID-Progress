@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Upload snapshot — Farmer ID Progress</title>
+  <title>Upload daily snapshot — Farmer ID Progress</title>
   {% include "_base_styles.html" ignore missing %}
   <style>
     body { background:#f3f6fb; color:#1f2937; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; }
@@ -25,12 +25,9 @@
            background:#f8d7da; color:#721c24; border-radius:6px; }
     .warn { margin:12px 0; padding:12px 14px; border:1px solid #f0c674;
             background:#fff8e8; color:#7a5b14; border-radius:6px; }
-    .addbox { display:block; margin:16px 0; padding:12px 14px; border:1px dashed #c99;
-              background:#fff8e8; border-radius:6px; cursor:pointer; color:#7a5b14; }
     .pill { padding:4px 10px; border:1px solid #cbd5e1; border-radius:999px;
             background:#f1f5f9; color:#334155; font-size:13px; display:inline-block;
             margin:2px; }
-    .pill.addpill { background:#fff3cd; border-color:#f0c674; color:#7a5b14; }
     .nav { background:#0b2447; color:#fff; padding:10px 20px; }
     .nav a { color:#fff; text-decoration:none; margin-right:18px; font-weight:500; }
     .nav a:hover { text-decoration:underline; }
@@ -40,7 +37,8 @@
 
 <div class="nav">
   <a href="/">Dashboard</a>
-  <a href="/upload">Upload</a>
+  <a href="/upload">Upload daily</a>
+  <a href="/admin/month-baselines">Monthly Baselines</a>
   <a href="/admin">Admin</a>
 </div>
 
@@ -57,11 +55,15 @@
 {% endif %}
 
 <div class="card">
-  <h2>New daily snapshot</h2>
+  <h2>Upload daily snapshot</h2>
   <p class="mut">
-    Upload the CSV exactly as exported from the AGRISTACK portal. Pick the date
-    the snapshot represents — the portal diffs this against the previous day to
-    compute additions.
+    Use this for days within the <strong>current month</strong>. For a completed
+    month (like Aug, Sep, Oct), use
+    <a href="/admin/month-baselines">Monthly Baselines</a> instead.
+  </p>
+  <p class="mut" style="margin-top:0;">
+    Current baseline cutoff: <strong>{{ baseline_label }}</strong>
+    (uploads must be dated after <code>{{ baseline_date }}</code>).
   </p>
 
   <form method="POST" enctype="multipart/form-data" id="uploadForm">
@@ -89,17 +91,6 @@
       <input type="file" name="csv" accept=".csv" class="inp inp-file">
     </div>
 
-    <!-- v36: additive / delta-only upload -->
-    <label class="addbox">
-      <input type="checkbox" name="additive" value="yes" style="margin-right:6px;">
-      <strong>Treat this file as additions-only (delta)</strong><br>
-      <small style="color:#555;">
-        Tick ONLY when the uploaded CSV contains just today's new rows (not a
-        full cumulative export). The counts will be <em>added</em> to the
-        previous cumulative. Leave unticked for a normal cumulative snapshot.
-      </small>
-    </label>
-
     <button type="submit" id="submitBtn" class="btn">Upload</button>
   </form>
 </div>
@@ -112,27 +103,22 @@
         file is committed to the GitHub repo and Render auto-redeploys.</li>
     <li>If a snapshot already exists for that date, it is replaced — old
         version stays in GitHub history.</li>
-    <li>If "additions-only" is ticked, a sidecar <code>.additive</code> marker
-        is saved next to the CSV so the dashboard SUMS it onto the previous
-        cumulative instead of overlaying.</li>
   </ol>
 </div>
 
 {% if existing_dates %}
 <div class="card">
-  <h3>Snapshots already uploaded
+  <h3>Current-month snapshots on file
     <span style="font-weight:400; color:#6b7280;">({{ existing_dates|length }})</span></h3>
   <div>
     {% for d in existing_dates %}
-      <span class="pill {% if d in additive_dates %}addpill{% endif %}">
-        {{ d }}{% if d in additive_dates %} · additive{% endif %}
-      </span>
+      <span class="pill">{{ d }}</span>
     {% endfor %}
   </div>
 </div>
 {% endif %}
 
-</div><!-- /wrap -->
+</div>
 
 <script>
 (function(){
