@@ -20,57 +20,22 @@ from functools import wraps
 from flask import Flask, Response, abort, render_template, request, jsonify, session, redirect, url_for, flash
 
 # =========================================================================
-# BAKED-IN DATA — baseline, targets, camp directors, first-bucket, tehsils
+# BAKED-IN DATA — targets, camp directors, first-bucket, tehsils
 # These are frozen in code; edit here (and commit) to change them.
+#
+# v37 — Historical baselines are NO LONGER hardcoded. They live on disk at
+# data/baselines/YYYY-MM.csv (one file per completed month) and are managed
+# from the "Monthly Baselines" admin page. Each file is month-only (that
+# month's new enrollments, as AGRISTACK exports it). The total baseline
+# count = sum of all uploaded monthly baseline CSVs. The "effective baseline
+# date" = last day of the latest uploaded month (daily snapshots must be
+# dated after this).
 # =========================================================================
 
-BASELINE_LABEL = "through 30 Sept 2026"
-BASELINE_DATE = "2026-09-30"   # the baseline is parked on this date
-BASELINE_ENABLED = True
-
-# Pre-Oct per-village totals: "Tehsil||Village" -> [issued, approved]
-BASELINE_THROUGH_SEP30 = {
-    "Ajas||S.K. Payeen": [230, 159],
-    "Aloosa||Ashtangoo": [286, 3],
-    "Bandipora||Brar": [254, 187],
-    "Bandipora||Chak Arsala Khan": [216, 185],
-    "Bandipora||Chak Reshipora": [59, 6],
-    "Bandipora||Chandaji": [67, 51],
-    "Bandipora||Chuntimulla": [282, 187],
-    "Bandipora||Dachigam": [98, 82],
-    "Bandipora||Gundi Qasier": [138, 107],
-    "Bandipora||Kharpora": [183, 154],
-    "Bandipora||Labkachal": [58, 37],
-    "Bandipora||Papachan": [153, 116],
-    "Bandipora||Shamthan": [88, 43],
-    "Bandipora||Takiya Ahmad Shah": [148, 114],
-    "Bandipora||Weven": [146, 11],
-    "Gurez||Khandiyal": [237, 192],
-    "Gurez||Koragbal": [59, 55],
-    "Gurez||Mastan Khopri": [193, 158],
-    "Hajin||Gulabwari": [1, 1],
-    "Hajin||Gund-i-Balkh": [148, 118],
-    "Hajin||Gund-i-Ramzan": [7, 6],
-    "Hajin||Madwan": [194, 150],
-    "Hajin||Tangpora": [105, 92],
-    "Hajin||Zoonipora": [125, 93],
-    "Sonawari||Chewa": [394, 270],
-    "Sonawari||Gaad Khud": [264, 186],
-    "Sonawari||Gund i Nowgam": [396, 237],
-    "Sonawari||Malik Pora": [152, 115],
-    "Sonawari||Najin": [198, 155],
-    "Sonawari||Shadi Pora": [385, 254],
-    "Sonawari||Shilvat": [231, 182],
-    "Sonawari||Zal Pora": [255, 197],
-    "Tulail||Abdullian": [70, 19],
-    "Tulail||Gund Gul Sheikh": [59, 54],
-    "Tulail||Hussangam": [160, 142],
-    "Tulail||Kilshay Payeen": [95, 32],
-    "Tulail||Malangam": [77, 68],
-    "Tulail||Manz Gund": [92, 48],
-    "Tulail||Puranatulail": [102, 66],
-    "Tulail||Wazirthal": [58, 50],
-}
+# Safe fallback when NO monthly baselines exist yet (first run or everything
+# deleted). Anything dated after this is treated as a daily snapshot.
+_BASELINE_FALLBACK_DATE  = "2026-07-31"
+_BASELINE_FALLBACK_LABEL = "no baseline uploaded yet"
 
 DEFAULT_TARGETS = [
     ("Ajas", "Ajas", 2912),
@@ -427,29 +392,127 @@ def parse_snapshot_csv(path):
     return counts
 
 def discover_snapshots():
-    """Scan data/ for CSV files, group by inferred date, return sorted [(YYYY-MM-DD, path)]."""
+    """Scan data/ for CSV files, group by inferred date, return sorted
+    [(YYYY-MM-DD, path)]. v37 — filter by effective_baseline_date() (not the
+    old static BASELINE_DATE) so the cutoff moves forward as new monthly
+    baselines get uploaded."""
     snaps = []
     if not os.path.isdir(DATA_DIR):
         return snaps
+    cutoff = effective_baseline_date()
     for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.csv"))):
         d = parse_date_from_filename(path)
-        if d and d > BASELINE_DATE:
+        if d and d > cutoff:
             snaps.append((d, path))
     snaps.sort(key=lambda x: x[0])
     return snaps
 
+# =========================================================================
+# v37 — Monthly baselines on disk at data/baselines/YYYY-MM.csv
+# Each file is month-only enrollments for that month. Dashboard baseline =
+# sum of all uploaded monthly baselines, per village.
+# =========================================================================
+
+MONTH_BASELINES_DIR = os.path.join(DATA_DIR, "baselines")
+_MONTH_FILE_RE = re.compile(r"^(\d{4})-(\d{2})\.csv$")
+
+def _month_end_date(ym):
+    """ym is 'YYYY-MM'. Return 'YYYY-MM-DD' for the last day of that month."""
+    y, m = ym.split("-"); y = int(y); m = int(m)
+    if m == 12:
+        nxt = datetime(y+1, 1, 1)
+    else:
+        nxt = datetime(y, m+1, 1)
+    last = nxt - timedelta(days=1)
+    return last.strftime("%Y-%m-%d")
+
+def _month_label(ym):
+    """'2026-10' -> 'October 2026'."""
+    try:
+        return datetime.strptime(ym + "-01", "%Y-%m-%d").strftime("%B %Y")
+    except Exception:
+        return ym
+
+def list_month_baseline_files():
+    """Return sorted [(ym, path)] of baseline files that look like YYYY-MM.csv."""
+    out = []
+    if not os.path.isdir(MONTH_BASELINES_DIR):
+        return out
+    for path in sorted(glob.glob(os.path.join(MONTH_BASELINES_DIR, "*.csv"))):
+        m = _MONTH_FILE_RE.match(os.path.basename(path))
+        if m:
+            out.append(("{}-{}".format(m.group(1), m.group(2)), path))
+    out.sort(key=lambda x: x[0])
+    return out
+
+def load_month_baselines():
+    """Parse every monthly baseline CSV and SUM per-village counts.
+    Returns (sum_counts, months_meta):
+      sum_counts  = {village_key: {tehsil, village, issued, approved}}
+      months_meta = [{"month": "2026-08", "label": "August 2026", "end": "2026-08-31",
+                      "issued": N, "approved": M, "villages": V, "path": "..."}]
+    """
+    sum_counts = {}
+    months_meta = []
+    for ym, path in list_month_baseline_files():
+        try:
+            mt = os.path.getmtime(path)
+            cached = _snapshot_parse_cache.get(path)
+            if cached and cached[0] == mt:
+                snap = cached[1]
+            else:
+                snap = parse_snapshot_csv(path)
+                _snapshot_parse_cache[path] = (mt, snap)
+        except Exception as e:
+            months_meta.append({
+                "month": ym, "label": _month_label(ym), "end": _month_end_date(ym),
+                "issued": 0, "approved": 0, "villages": 0, "path": path,
+                "error": str(e),
+            })
+            continue
+        m_iss = m_app = 0
+        for k, v in snap.items():
+            prev = sum_counts.get(k, {})
+            sum_counts[k] = {
+                "tehsil":  prev.get("tehsil", v["tehsil"]),
+                "village": prev.get("village", v["village"]),
+                "issued":   prev.get("issued", 0)   + v["issued"],
+                "approved": prev.get("approved", 0) + v["approved"],
+            }
+            m_iss += v["issued"]
+            m_app += v["approved"]
+        months_meta.append({
+            "month": ym, "label": _month_label(ym), "end": _month_end_date(ym),
+            "issued": m_iss, "approved": m_app, "villages": len(snap), "path": path,
+        })
+    return sum_counts, months_meta
+
+def effective_baseline_date():
+    """Last day of the latest uploaded monthly baseline, or safe fallback."""
+    files = list_month_baseline_files()
+    if not files:
+        return _BASELINE_FALLBACK_DATE
+    latest_ym = files[-1][0]
+    return _month_end_date(latest_ym)
+
+def effective_baseline_label():
+    files = list_month_baseline_files()
+    if not files:
+        return _BASELINE_FALLBACK_LABEL
+    latest_ym = files[-1][0]
+    return "through {}".format(datetime.strptime(effective_baseline_date(), "%Y-%m-%d").strftime("%d %b %Y"))
+
 def baseline_counts():
-    """Return {village_key: {issued, approved, tehsil, village}} from frozen baseline."""
-    counts = {}
-    if not BASELINE_ENABLED:
-        return counts
-    for raw_key, (iss, appr) in BASELINE_THROUGH_SEP30.items():
-        t, v = raw_key.split("||")
-        counts[norm_key(t, v)] = {
-            "tehsil": t, "village": v,
-            "issued": iss, "approved": appr,
+    """v37 — Return {village_key: {issued, approved, tehsil, village}} from
+    the SUM of all uploaded monthly baseline CSVs."""
+    sum_counts, _ = load_month_baselines()
+    out = {}
+    for k, v in sum_counts.items():
+        out[k] = {
+            "tehsil": v["tehsil"], "village": v["village"],
+            "issued": v["issued"], "approved": v["approved"],
         }
-    return counts
+    return out
 
 def _merge(dst, src):
     """Overlay src counts onto dst for the same village key. AGRISTACK snapshots
@@ -467,40 +530,9 @@ def _merge(dst, src):
             "approved": max(v["approved"], prev.get("approved", 0)),
         }
 
-def _merge_additive(dst, src):
-    """ADDITIVE merge (v36). The uploaded file is a DELTA — just today's new rows,
-    not the full cumulative state. Each snapshot village count is ADDED to the
-    running cumulative. Used when a `.additive` sidecar marker is present next to
-    the CSV. Villages not in src keep their previous (usually baseline) numbers.
-    """
-    for k, v in src.items():
-        prev = dst.get(k, {})
-        dst[k] = {
-            "tehsil": prev.get("tehsil", v["tehsil"]),
-            "village": prev.get("village", v["village"]),
-            "issued":   prev.get("issued", 0)   + v["issued"],
-            "approved": prev.get("approved", 0) + v["approved"],
-        }
-
-def _additive_marker_path(csv_path):
-    """Return the sibling marker path for a snapshot CSV. The marker is a tiny
-    file that lives next to the CSV: data/YYYY-MM-DD.additive. Its presence
-    (and non-empty content) tells build_state() to treat the CSV as a
-    delta-only file (sum onto cumulative) instead of a full cumulative
-    snapshot (max/overlay).
-    """
-    base, _ = os.path.splitext(csv_path)
-    return base + ".additive"
-
-def _is_additive_snapshot(csv_path):
-    """True iff a non-empty .additive marker sits next to this snapshot. We
-    check size rather than mere existence because clearing the marker through
-    GitHub (which has no simple DELETE) rewrites it to an empty file."""
-    mp = _additive_marker_path(csv_path)
-    try:
-        return os.path.exists(mp) and os.path.getsize(mp) > 0
-    except OSError:
-        return False
+# v37 — the additive upload mode (v36) has been removed. Monthly baselines
+# now carry the historical totals; daily CSVs within the current month are
+# standard cumulative-growing AGRISTACK exports, merged via max().
 
 def build_state():
     """Load baseline + all snapshots. Returns:
@@ -509,14 +541,13 @@ def build_state():
       - sorted_dates: [YYYY-MM-DD]   -> baseline date first, then snapshot dates
     """
     base = baseline_counts()
-    per_date = {BASELINE_DATE: {k: dict(v) for k, v in base.items()}}
+    baseline_date = effective_baseline_date()
+    per_date = {baseline_date: {k: dict(v) for k, v in base.items()}}
     cumulative = {k: dict(v) for k, v in base.items()}
-    sorted_dates = [BASELINE_DATE]
+    sorted_dates = [baseline_date]
     errors = []
     for date, path in discover_snapshots():
         try:
-            # v33 — cache parsed snapshots by (path, mtime). Only re-parse when
-            # the file on disk actually changed (new upload or replaced).
             mt = os.path.getmtime(path)
             cached = _snapshot_parse_cache.get(path)
             if cached and cached[0] == mt:
@@ -527,15 +558,9 @@ def build_state():
         except Exception as e:
             errors.append(str(e))
             continue
-        # v36 — If a non-empty .additive sidecar marker sits next to this
-        # snapshot, the uploaded CSV is a DELTA (today's new rows only), so
-        # add it onto the running cumulative. Otherwise treat it as a full
-        # cumulative snapshot and overlay via max() as before. Villages not
-        # in the snapshot keep their previous (usually baseline) numbers.
-        if _is_additive_snapshot(path):
-            _merge_additive(cumulative, snap)
-        else:
-            _merge(cumulative, snap)
+        # Daily snapshots are cumulative within the current month (AGRISTACK
+        # resets at month start). max-merge keeps per-day additions non-negative.
+        _merge(cumulative, snap)
         per_date[date] = {k: dict(v) for k, v in cumulative.items()}
         sorted_dates.append(date)
     return cumulative, per_date, sorted_dates, errors
@@ -1144,37 +1169,35 @@ def _build_nested_structure_fresh(skip_pending=False):
         targets[k] = tg
         display[k] = (t, v)
 
+    # v37 — baseline per village = sum of all uploaded monthly baseline CSVs.
+    # Dict shape: {norm_key: {issued, approved}}
+    baseline_by_key = baseline_counts()
+
+    def _bl(key):
+        rec = baseline_by_key.get(key)
+        if rec:
+            return rec["issued"], rec["approved"]
+        return 0, 0
+
     # Build village rows: union of (targets ∪ cumulative)
     villages = {}
     for key, tgt in targets.items():
         rec = cumulative.get(key)
+        iss_b, app_b = _bl(key)
         if rec:
-            # v32 — prefer the portal's canonical display name (from targets /
-            # camp-director tables) over whatever spelling the CSV used. This
-            # matters when CSV reconciliation has merged "Rakh-i-Asham" into
-            # "Rkhi Asham" — we want the merged row to show the portal name.
             portal_disp = display.get(key)
             disp_t = portal_disp[0] if portal_disp else rec["tehsil"]
             disp_v = portal_disp[1] if portal_disp else rec["village"]
             villages[key] = {
                 "tehsil": disp_t, "village": disp_v, "target": tgt,
                 "issued": rec["issued"], "approved": rec["approved"],
-                "issuedBaseline": BASELINE_THROUGH_SEP30.get(
-                    rec["tehsil"] + "||" + rec["village"], [0, 0])[0],
-                "approvedBaseline": BASELINE_THROUGH_SEP30.get(
-                    rec["tehsil"] + "||" + rec["village"], [0, 0])[1],
+                "issuedBaseline": iss_b,
+                "approvedBaseline": app_b,
                 "firstBucket": is_first_bucket(disp_v),
                 "campDirector": camp_director_for(disp_t, disp_v),
             }
         else:
-            # Target with no data yet — baseline fallback with proper display names
             disp_t, disp_v = display.get(key, (key.split("||")[0], key.split("||")[1] if "||" in key else ""))
-            iss_b, app_b = 0, 0
-            for raw_key, (ib, ab) in BASELINE_THROUGH_SEP30.items():
-                rt, rv = raw_key.split("||")
-                if norm_key(rt, rv) == key:
-                    iss_b, app_b = ib, ab
-                    break
             villages[key] = {
                 "tehsil": disp_t, "village": disp_v, "target": tgt,
                 "issued": iss_b, "approved": app_b,
@@ -1186,8 +1209,7 @@ def _build_nested_structure_fresh(skip_pending=False):
     for key, rec in cumulative.items():
         if key in villages:
             continue
-        iss_b = BASELINE_THROUGH_SEP30.get(rec["tehsil"] + "||" + rec["village"], [0, 0])[0]
-        app_b = BASELINE_THROUGH_SEP30.get(rec["tehsil"] + "||" + rec["village"], [0, 0])[1]
+        iss_b, app_b = _bl(key)
         villages[key] = {
             "tehsil": rec["tehsil"], "village": rec["village"], "target": 0,
             "issued": rec["issued"], "approved": rec["approved"],
@@ -1309,23 +1331,25 @@ def _build_nested_structure_fresh(skip_pending=False):
         ))
     tehsil_list = sorted(tehsils.values(), key=lambda t: -t["issued"])
 
-    # Last 5 days district additions (strip at top) — most recent dates after baseline
-    recent_dates = [d for d in sorted_dates if d > BASELINE_DATE][-5:]
+    # Last 5 days district additions — most recent dates after baseline
+    _baseline_date = effective_baseline_date()
+    _baseline_label = effective_baseline_label()
+    recent_dates = [d for d in sorted_dates if d > _baseline_date][-5:]
     last5 = [{"date": d, "total": daily[d]["total"]} for d in recent_dates]
 
     # Dates for range picker
-    min_date = sorted_dates[0] if sorted_dates else BASELINE_DATE
-    max_date = sorted_dates[-1] if sorted_dates else BASELINE_DATE
+    min_date = sorted_dates[0] if sorted_dates else _baseline_date
+    max_date = sorted_dates[-1] if sorted_dates else _baseline_date
 
     return {
         "tehsils": tehsil_list,
         "last5": last5,
         "minDate": min_date,
         "maxDate": max_date,
-        "baselineDate": BASELINE_DATE,
-        "baselineLabel": BASELINE_LABEL,
+        "baselineDate": _baseline_date,
+        "baselineLabel": _baseline_label,
         "generated": datetime.utcnow().isoformat() + "Z",
-        "snapshotDates": [d for d in sorted_dates if d > BASELINE_DATE],
+        "snapshotDates": [d for d in sorted_dates if d > _baseline_date],
         "errors": errors,
         "pendingMeta": {
             "ok": bool(pending_map) and not _pending_cache.get("error"),
@@ -2080,18 +2104,17 @@ def _parse_date_input(raw):
 def upload():
     error = None
     saved = None
-    replaced_date = None  # set when a successful upload replaced an existing snapshot
+    replaced_date = None
+    baseline_date = effective_baseline_date()
     if request.method == "POST":
         date = _parse_date_input(request.form.get("date", ""))
-        additive = (request.form.get("additive") == "yes")  # v36 — delta-file mode
-        if not date or date <= BASELINE_DATE:
-            error = "Date must be in dd-mm-yyyy and after {}.".format(BASELINE_DATE)
+        if not date or date <= baseline_date:
+            error = ("Date must be in dd-mm-yyyy and after {} (the latest closed-month "
+                     "baseline). Pre-baseline months go through the Monthly Baselines "
+                     "admin page, not here.").format(baseline_date)
         else:
             out_path = os.path.join(DATA_DIR, date + ".csv")
-            marker_path = _additive_marker_path(out_path)
             already_exists = os.path.exists(out_path)
-            # If overwriting, the client must confirm (the JS on the page sets this
-            # hidden flag after the admin acknowledges the warning).
             if already_exists and request.form.get("confirm_overwrite") != "yes":
                 error = ("A snapshot for {} already exists. Tick 'Yes, replace it' and "
                          "resubmit to confirm the overwrite.").format(date)
@@ -2108,74 +2131,231 @@ def upload():
                         os.remove(out_path)
                         error = "That CSV didn't parse: {}".format(e)
                     else:
-                        # v36 — write / remove the .additive sidecar marker.
-                        # Checking the box on a one-off delta upload creates it;
-                        # a normal cumulative upload on the same date clears it.
-                        marker_existed = os.path.exists(marker_path)
-                        if additive:
-                            with open(marker_path, "w", encoding="utf-8") as mf:
-                                mf.write("additive\n")
-                        elif marker_existed:
-                            try: os.remove(marker_path)
-                            except OSError: pass
                         saved = date + ".csv"
-                        if additive:
-                            saved += " (delta-only / additive)"
                         if already_exists:
                             replaced_date = date
                         if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
                             try:
                                 verb = "replace" if already_exists else "add"
-                                tag = " (additive)" if additive else ""
                                 commit_to_github(out_path, "data/" + date + ".csv",
-                                                 "data: {} snapshot for {}{}".format(verb, date, tag))
-                                # v36 — also sync the marker file to GitHub.
-                                if additive:
-                                    commit_to_github(marker_path,
-                                                     "data/" + date + ".additive",
-                                                     "data: mark {} as additive/delta".format(date))
-                                elif marker_existed:
-                                    # Push an empty-ish placeholder so Render sees
-                                    # the marker is gone on next deploy. GitHub has
-                                    # no "delete file" via the simple PUT API, so
-                                    # we rewrite the marker to a disabled stub.
-                                    try:
-                                        tmp = marker_path + ".clear"
-                                        with open(tmp, "w", encoding="utf-8") as tf:
-                                            tf.write("")
-                                        commit_to_github(tmp,
-                                                         "data/" + date + ".additive",
-                                                         "data: clear additive marker for {}".format(date))
-                                        os.remove(tmp)
-                                    except Exception:
-                                        pass
+                                                 "data: {} snapshot for {}".format(verb, date))
                                 saved += " (committed to GitHub)"
                             except Exception as e:
                                 error = "Saved locally but GitHub push failed: {}".format(e)
-                        # v36 — any change to a snapshot or its marker invalidates
-                        # the parse cache for that file, so build_state re-reads it.
                         try:
                             _snapshot_parse_cache.pop(out_path, None)
                         except Exception:
                             pass
                         _invalidate_dashboard_cache()
-                        # Fresh data → refresh the public mirror
                         _publish_mirror_quietly()
-    # Collect existing snapshot dates for the UI. existing_dates is kept as a
-    # list of plain date strings for backward compatibility with earlier
-    # templates. additive_dates is a parallel set of dates that have an
-    # .additive marker (so the template can tag them if it chooses).
-    existing = []
-    additive_dates = set()
-    for d, path in discover_snapshots():
-        existing.append(d)
-        if _is_additive_snapshot(path):
-            additive_dates.add(d)
+    existing = [d for d, _ in discover_snapshots()]
     return render_template("upload.html",
-                           baseline_date=BASELINE_DATE,
+                           baseline_date=baseline_date,
+                           baseline_label=effective_baseline_label(),
                            existing_dates=existing,
-                           additive_dates=additive_dates,
                            replaced_date=replaced_date,
+                           error=error, saved=saved)
+
+
+# ---- Monthly Baselines (admin) ------------------------------------------
+# v37 — admin page to upload one CSV per completed month, and to close the
+# current month (freezing the latest daily snapshot into the next baseline).
+
+def _slots_to_show():
+    """Build the list of month slots to show in the admin UI. Starts at Aug
+    2026 and runs through the month BEFORE the current month (the current
+    month is managed via daily snapshots, not a baseline, until it's closed).
+    Adds extra rows automatically once baselines exist for later months, so
+    nothing needs a code change each month."""
+    base_start = datetime(2026, 8, 1)
+    now = datetime.utcnow()
+    end = datetime(now.year, now.month, 1)  # exclusive — don't show current month
+    # also extend to cover any existing baseline files, in case we're late
+    files = list_month_baseline_files()
+    if files:
+        latest_ym = files[-1][0]
+        y, m = latest_ym.split("-"); y = int(y); m = int(m)
+        if m == 12: tail = datetime(y+1, 1, 1)
+        else:       tail = datetime(y, m+1, 1)
+        if tail > end:
+            end = tail
+    slots = []
+    cur = base_start
+    while cur < end:
+        slots.append(cur.strftime("%Y-%m"))
+        if cur.month == 12:
+            cur = datetime(cur.year+1, 1, 1)
+        else:
+            cur = datetime(cur.year, cur.month+1, 1)
+    return slots
+
+@app.route("/admin/month-baselines", methods=["GET", "POST"])
+@admin_required
+def admin_month_baselines():
+    error = None
+    saved = None
+    os.makedirs(MONTH_BASELINES_DIR, exist_ok=True)
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        if action == "upload":
+            ym = (request.form.get("month") or "").strip()
+            if not re.match(r"^\d{4}-\d{2}$", ym):
+                error = "Pick a month."
+            else:
+                f = request.files.get("csv")
+                if not f or not f.filename:
+                    error = "Pick a CSV file for {}.".format(ym)
+                else:
+                    out_path = os.path.join(MONTH_BASELINES_DIR, ym + ".csv")
+                    f.save(out_path)
+                    try:
+                        parse_snapshot_csv(out_path)
+                    except Exception as e:
+                        os.remove(out_path)
+                        error = "That CSV didn't parse: {}".format(e)
+                    else:
+                        saved = "Saved {} baseline ({}).".format(_month_label(ym), ym + ".csv")
+                        if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+                            try:
+                                commit_to_github(out_path,
+                                                 "data/baselines/" + ym + ".csv",
+                                                 "data: set month baseline for {}".format(ym))
+                                saved += " Committed to GitHub."
+                            except Exception as e:
+                                error = "Saved locally but GitHub push failed: {}".format(e)
+                        try: _snapshot_parse_cache.pop(out_path, None)
+                        except Exception: pass
+                        _invalidate_dashboard_cache()
+                        _publish_mirror_quietly()
+
+        elif action == "delete":
+            ym = (request.form.get("month") or "").strip()
+            if not re.match(r"^\d{4}-\d{2}$", ym):
+                error = "Bad month."
+            else:
+                out_path = os.path.join(MONTH_BASELINES_DIR, ym + ".csv")
+                if os.path.exists(out_path):
+                    try: os.remove(out_path)
+                    except OSError as e: error = "Could not delete: {}".format(e)
+                if not error:
+                    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+                        # GitHub simple PUT can't DELETE — write an empty placeholder,
+                        # then the file is ignored by _MONTH_FILE_RE on next load
+                        # (actually it still matches; we overwrite with a header
+                        # row only so parse yields nothing and sums contribute 0).
+                        try:
+                            tmp = out_path + ".empty"
+                            with open(tmp, "w", encoding="utf-8") as tf:
+                                tf.write("districtName,subDistrictName,villageName,approvalStatus\n")
+                            commit_to_github(tmp, "data/baselines/" + ym + ".csv",
+                                             "data: clear month baseline for {}".format(ym))
+                            os.remove(tmp)
+                        except Exception as e:
+                            error = "Deleted locally but GitHub clear failed: {}".format(e)
+                    saved = "Cleared {} baseline.".format(_month_label(ym))
+                    try: _snapshot_parse_cache.pop(out_path, None)
+                    except Exception: pass
+                    _invalidate_dashboard_cache()
+                    _publish_mirror_quietly()
+
+        elif action == "close_month":
+            # Take the latest daily snapshot and promote it into the next
+            # baseline slot. Uses CURRENT MONTH's last snapshot.
+            snaps = discover_snapshots()
+            if not snaps:
+                error = ("No daily snapshots to close. Upload at least one daily CSV "
+                         "for the current month first.")
+            else:
+                latest_date, latest_path = snaps[-1]
+                # latest_date is YYYY-MM-DD; month slug = YYYY-MM
+                ym = latest_date[:7]
+                out_path = os.path.join(MONTH_BASELINES_DIR, ym + ".csv")
+                try:
+                    with open(latest_path, "rb") as src:
+                        with open(out_path, "wb") as dst:
+                            dst.write(src.read())
+                    parse_snapshot_csv(out_path)
+                except Exception as e:
+                    try: os.remove(out_path)
+                    except OSError: pass
+                    error = "Could not promote snapshot: {}".format(e)
+                else:
+                    saved = ("Closed {}. Latest daily snapshot ({}) is now the baseline "
+                             "for that month.").format(_month_label(ym), latest_date)
+                    if os.environ.get("GH_TOKEN") and os.environ.get("GH_REPO"):
+                        try:
+                            commit_to_github(out_path,
+                                             "data/baselines/" + ym + ".csv",
+                                             "data: close month {} (baseline from {})".format(ym, latest_date))
+                            saved += " Committed to GitHub."
+                        except Exception as e:
+                            error = "Saved locally but GitHub push failed: {}".format(e)
+                    try: _snapshot_parse_cache.pop(out_path, None)
+                    except Exception: pass
+                    _invalidate_dashboard_cache()
+                    _publish_mirror_quietly()
+
+    # Build display state
+    _, months_meta = load_month_baselines()
+    uploaded = {m["month"]: m for m in months_meta}
+    rows = []
+    for ym in _slots_to_show():
+        if ym in uploaded:
+            m = uploaded[ym]
+            rows.append({
+                "month":    ym,
+                "label":    m["label"],
+                "end":      m["end"],
+                "uploaded": True,
+                "issued":   m["issued"],
+                "approved": m["approved"],
+                "villages": m["villages"],
+                "error":    m.get("error"),
+            })
+        else:
+            rows.append({
+                "month":    ym,
+                "label":    _month_label(ym),
+                "end":      _month_end_date(ym),
+                "uploaded": False,
+                "issued":   0, "approved": 0, "villages": 0, "error": None,
+            })
+    # Any baselines beyond the generated slots (e.g. future months) — show them too
+    for m in months_meta:
+        if m["month"] not in [r["month"] for r in rows]:
+            rows.append({
+                "month": m["month"], "label": m["label"], "end": m["end"],
+                "uploaded": True, "issued": m["issued"], "approved": m["approved"],
+                "villages": m["villages"], "error": m.get("error"),
+            })
+
+    # Totals
+    totals = {
+        "issued":   sum(r["issued"]   for r in rows if r["uploaded"]),
+        "approved": sum(r["approved"] for r in rows if r["uploaded"]),
+        "months":   sum(1 for r in rows if r["uploaded"]),
+    }
+
+    # Current-month info (for the "close month" section)
+    snaps = discover_snapshots()
+    current_month_info = None
+    if snaps:
+        latest_date, _ = snaps[-1]
+        current_month_info = {
+            "latest_date": latest_date,
+            "ym": latest_date[:7],
+            "label": _month_label(latest_date[:7]),
+            "count": len(snaps),
+        }
+
+    return render_template("month_baselines.html",
+                           rows=rows,
+                           totals=totals,
+                           current_month=current_month_info,
+                           baseline_date=effective_baseline_date(),
+                           baseline_label=effective_baseline_label(),
                            error=error, saved=saved)
 
 
@@ -2530,8 +2710,8 @@ def download_csv():
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Tehsil", "Village", "Target", "Total Issued", "Approved",
-                "Issued through 30 Sep", "Approved through 30 Sep",
-                "Added since 1 Oct", "Issue %", "Approval %",
+                "Issued (baseline)", "Approved (baseline)",
+                "Additions this month", "Issue %", "Approval %",
                 "First Bucket", "Camp Director", "Director Phone"])
     for t in state["tehsils"]:
         for v in t["villages"]:
@@ -2592,7 +2772,7 @@ def download_xlsx():
     # --- Sheet 1: Tehsil Summary ---
     ws = wb.active
     ws.title = "Tehsil Summary"
-    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", "Added since 1 Oct",
+    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", "Additions this month",
                "Issue %", "Approved", "Approval %"]
     rows = []
     gT = gI = gA = gS = 0
@@ -2606,7 +2786,7 @@ def download_xlsx():
     # --- Sheet 2: Village Details (all villages) ---
     ws = wb.create_sheet("Village Details")
     headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Approved",
-               "Issued thru 30 Sep", "Approved thru 30 Sep", "Added since 1 Oct",
+               "Issued (baseline)", "Approved (baseline)", "Additions this month",
                "Issue %", "Approval %", "First Bucket", "Camp Director", "Phone"]
     rows = []
     n = 1
@@ -2624,7 +2804,7 @@ def download_xlsx():
 
     # --- Sheet 3: Camp Director Villages (59) ---
     ws = wb.create_sheet("Camp Director Villages")
-    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Added since 1 Oct",
+    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Additions this month",
                "Issue %", "Approved", "Approval %", "Camp Director", "Phone"]
     rows = []
     n = 1
@@ -2643,7 +2823,7 @@ def download_xlsx():
     # --- Sheet 4: Camp Director Leaderboard ---
     ws = wb.create_sheet("Camp Director Leaderboard")
     headers = ["#", "Director", "Phone", "Tehsil", "Villages Managed", "Village Names",
-               "Target", "Total Issued", "Added since 1 Oct", "Issue %", "Approved", "Approval %"]
+               "Target", "Total Issued", "Additions this month", "Issue %", "Approved", "Approval %"]
     rows = []
     for i, d in enumerate(data["director_leaderboard"], 1):
         rows.append([i, d["director"], d["phone"], d["tehsil"], d["village_count"],
