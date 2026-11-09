@@ -2732,36 +2732,76 @@ def analysis():
 
 # ---- CSV download: village-level, flat --------------------------------
 
+# ---- Date-range helpers for downloads ---------------------------------
+#
+# The dashboard's "Additions between" date picker sends ?from=YYYY-MM-DD
+# &to=YYYY-MM-DD on download. These helpers sum per-village datedCounts
+# across the window. If no window is supplied, falls back to the server's
+# "this month" view (issued - baseline).
+
+def _parse_download_range(state):
+    """Return (from_date, to_date, label, filename_tag). Falls back to
+    (None, None, 'this month', '') when the request has no date params."""
+    f = (request.args.get("from") or "").strip()
+    t = (request.args.get("to") or "").strip()
+    valid = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    if valid.match(f) and valid.match(t):
+        if f > t: f, t = t, f
+        def short(d):
+            try: return datetime.strptime(d, "%Y-%m-%d").strftime("%d %b '%y")
+            except: return d
+        lbl = short(f) + " – " + short(t)
+        tag = "_{}_to_{}".format(f, t)
+        return f, t, lbl, tag
+    return None, None, "this month", ""
+
+def _additions_in_range(v, from_date, to_date, field="issued"):
+    """Sum per-day deltas for this village in [from_date, to_date], inclusive.
+    When no range is given, return the legacy value (issued - baseline)."""
+    if not from_date or not to_date:
+        return v.get(field, 0) - v.get(field + "Baseline", 0)
+    total = 0
+    for d, slot in (v.get("datedCounts") or {}).items():
+        if from_date <= d <= to_date:
+            total += slot.get(field, 0) or 0
+    return total
+
+
 @app.route("/download/csv")
+@admin_required
 def download_csv():
     import io
     state = build_nested_structure()
+    frm, to, lbl, tag = _parse_download_range(state)
     buf = io.StringIO()
     w = csv.writer(buf)
+    additions_hdr = "Additions ({})".format(lbl)
     w.writerow(["Tehsil", "Village", "Target", "Total Issued", "Approved",
                 "Issued (baseline)", "Approved (baseline)",
-                "Additions this month", "Issue %", "Approval %",
+                additions_hdr, "Issue %", "Approval %",
                 "First Bucket", "Camp Director", "Director Phone"])
     for t in state["tehsils"]:
         for v in t["villages"]:
             cd = v["campDirector"] or {}
-            since = v["issued"] - v["issuedBaseline"]
+            adds = _additions_in_range(v, frm, to, "issued")
             issue_pct  = round(v["issued"]/v["target"]*100, 1) if v["target"] > 0 else ""
             appr_pct   = round(v["approved"]/v["issued"]*100, 1) if v["issued"] > 0 else ""
             w.writerow([t["tehsil"], v["village"], v["target"], v["issued"], v["approved"],
                         v["issuedBaseline"], v["approvedBaseline"],
-                        since, issue_pct, appr_pct,
+                        adds, issue_pct, appr_pct,
                         "Yes" if v["firstBucket"] else "No",
                         cd.get("n", ""), cd.get("p", "")])
     today = datetime.utcnow().strftime("%Y-%m-%d")
+    name = "farmer_id_progress{}_{}.csv".format(tag, today)
     return Response(buf.getvalue(),
                     mimetype="text/csv",
-                    headers={"Content-Disposition": f"attachment; filename=farmer_id_progress_{today}.csv"})
+                    headers={"Content-Disposition": "attachment; filename=" + name})
 
 
 # ---- XLSX download: multi-sheet workbook ------------------------------
 
 @app.route("/download/xlsx")
+@admin_required
 def download_xlsx():
     import io
     from openpyxl import Workbook
@@ -2770,6 +2810,8 @@ def download_xlsx():
 
     state = build_nested_structure()
     data  = analysis_data()
+    frm, to, lbl, tag = _parse_download_range(state)
+    additions_hdr = "Additions ({})".format(lbl)
     wb = Workbook()
 
     header_font = Font(bold=True, color="FFFFFF")
@@ -2780,8 +2822,7 @@ def download_xlsx():
     def write_sheet(ws, headers, rows, totals_row=None):
         for i, h in enumerate(headers, 1):
             c = ws.cell(row=1, column=i, value=h)
-            c.font = header_font
-            c.fill = header_fill
+            c.font = header_font; c.fill = header_fill
             c.alignment = Alignment(horizontal="left", vertical="center")
         for r_idx, row in enumerate(rows, 2):
             for c_idx, val in enumerate(row, 1):
@@ -2790,50 +2831,82 @@ def download_xlsx():
             r = len(rows) + 2
             for c_idx, val in enumerate(totals_row, 1):
                 cell = ws.cell(row=r, column=c_idx, value=val)
-                cell.font = totals_font
-                cell.fill = totals_fill
-        # Auto column widths (rough)
+                cell.font = totals_font; cell.fill = totals_fill
         for c_idx in range(1, len(headers) + 1):
             max_len = max([len(str(headers[c_idx-1]))] + [len(str(r[c_idx-1])) for r in rows if c_idx-1 < len(r)])
             ws.column_dimensions[get_column_letter(c_idx)].width = min(max_len + 2, 42)
         ws.freeze_panes = "A2"
 
-    # --- Sheet 1: Tehsil Summary ---
+    # --- Sheet 0: Summary / cover sheet ---
     ws = wb.active
-    ws.title = "Tehsil Summary"
-    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", "Additions this month",
+    ws.title = "Summary"
+    total_target   = sum(t["target"]   for t in state["tehsils"])
+    total_issued   = sum(t["issued"]   for t in state["tehsils"])
+    total_approved = sum(t["approved"] for t in state["tehsils"])
+    total_adds = 0
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            total_adds += _additions_in_range(v, frm, to, "issued")
+    kv = [
+        ("Bandipora District — Farmer Enrollment Progress", ""),
+        ("Generated", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
+        ("Baseline", state["baselineLabel"]),
+        ("Latest snapshot", state["snapshotDates"][-1] if state["snapshotDates"] else state["baselineDate"]),
+        ("Additions window", lbl),
+        ("", ""),
+        ("Total Target",   total_target),
+        ("Total Issued",   total_issued),
+        ("Total Approved", total_approved),
+        ("Additions in window", total_adds),
+        ("Issue %",    _pct(total_issued, total_target)),
+        ("Approval %", _pct(total_approved, total_issued)),
+    ]
+    for i, (label, val) in enumerate(kv, 1):
+        c1 = ws.cell(row=i, column=1, value=label); c2 = ws.cell(row=i, column=2, value=val)
+        if i == 1: c1.font = Font(bold=True, size=14, color="1A3A5C")
+        if label and ":" not in label and label.lower() not in ("generated","baseline","latest snapshot","additions window","bandipora district — farmer enrollment progress"):
+            c1.font = Font(bold=True)
+    ws.column_dimensions["A"].width = 32
+    ws.column_dimensions["B"].width = 38
+
+    # --- Sheet 1: Tehsil Summary ---
+    ws = wb.create_sheet("Tehsil Summary")
+    headers = ["#", "Tehsil", "Villages", "Target", "Total Issued", additions_hdr,
                "Issue %", "Approved", "Approval %"]
     rows = []
     gT = gI = gA = gS = 0
     for i, t in enumerate(data["tehsil_ranking"], 1):
+        t_adds = 0
+        for v in next((x["villages"] for x in state["tehsils"] if x["tehsil"] == t["tehsil"]), []):
+            t_adds += _additions_in_range(v, frm, to, "issued")
         rows.append([i, t["tehsil"], t["villages"], t["target"], t["issued"],
-                     t["sinceOct1"], t["issuePct"], t["approved"], t["approvalPct"]])
-        gT += t["target"]; gI += t["issued"]; gA += t["approved"]; gS += t["sinceOct1"]
+                     t_adds, t["issuePct"], t["approved"], t["approvalPct"]])
+        gT += t["target"]; gI += t["issued"]; gA += t["approved"]; gS += t_adds
     totals = ["", "TOTAL", "", gT, gI, gS, _pct(gI, gT), gA, _pct(gA, gI)]
     write_sheet(ws, headers, rows, totals)
 
-    # --- Sheet 2: Village Details (all villages) ---
+    # --- Sheet 2: Village Details ---
     ws = wb.create_sheet("Village Details")
     headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Approved",
-               "Issued (baseline)", "Approved (baseline)", "Additions this month",
+               "Issued (baseline)", "Approved (baseline)", additions_hdr,
                "Issue %", "Approval %", "First Bucket", "Camp Director", "Phone"]
     rows = []
     n = 1
     for t in state["tehsils"]:
         for v in t["villages"]:
             cd = v["campDirector"] or {}
-            since = v["issued"] - v["issuedBaseline"]
+            adds = _additions_in_range(v, frm, to, "issued")
             rows.append([n, t["tehsil"], v["village"], v["target"], v["issued"], v["approved"],
-                         v["issuedBaseline"], v["approvedBaseline"], since,
+                         v["issuedBaseline"], v["approvedBaseline"], adds,
                          _pct(v["issued"], v["target"]), _pct(v["approved"], v["issued"]),
                          "Yes" if v["firstBucket"] else "No",
                          cd.get("n", ""), cd.get("p", "")])
             n += 1
     write_sheet(ws, headers, rows)
 
-    # --- Sheet 3: Camp Director Villages (59) ---
+    # --- Sheet 3: Camp Director Villages ---
     ws = wb.create_sheet("Camp Director Villages")
-    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", "Additions this month",
+    headers = ["#", "Tehsil", "Village", "Target", "Total Issued", additions_hdr,
                "Issue %", "Approved", "Approval %", "Camp Director", "Phone"]
     rows = []
     n = 1
@@ -2842,8 +2915,8 @@ def download_xlsx():
             if not v.get("campDirector"):
                 continue
             cd = v["campDirector"]
-            since = v["issued"] - v["issuedBaseline"]
-            rows.append([n, t["tehsil"], v["village"], v["target"], v["issued"], since,
+            adds = _additions_in_range(v, frm, to, "issued")
+            rows.append([n, t["tehsil"], v["village"], v["target"], v["issued"], adds,
                          _pct(v["issued"], v["target"]), v["approved"],
                          _pct(v["approved"], v["issued"]), cd["n"], cd.get("p", "")])
             n += 1
@@ -2852,15 +2925,25 @@ def download_xlsx():
     # --- Sheet 4: Camp Director Leaderboard ---
     ws = wb.create_sheet("Camp Director Leaderboard")
     headers = ["#", "Director", "Phone", "Tehsil", "Villages Managed", "Village Names",
-               "Target", "Total Issued", "Additions this month", "Issue %", "Approved", "Approval %"]
+               "Target", "Total Issued", additions_hdr, "Issue %", "Approved", "Approval %"]
     rows = []
+    # Compute per-director additions in the window using state (not analysis_data,
+    # which is based on since-baseline)
+    from collections import defaultdict
+    dir_adds = defaultdict(int)
+    for t in state["tehsils"]:
+        for v in t["villages"]:
+            cd = v.get("campDirector") or {}
+            if not cd.get("n"): continue
+            dir_adds[(t["tehsil"], cd["n"])] += _additions_in_range(v, frm, to, "issued")
     for i, d in enumerate(data["director_leaderboard"], 1):
         rows.append([i, d["director"], d["phone"], d["tehsil"], d["village_count"],
-                     d["village_names"], d["target"], d["issued"], d["sinceOct1"],
+                     d["village_names"], d["target"], d["issued"],
+                     dir_adds.get((d["tehsil"], d["director"]), 0),
                      d["issuePct"], d["approved"], d["approvalPct"]])
     write_sheet(ws, headers, rows)
 
-    # --- Sheet 5: Daily Deltas ---
+    # --- Sheet 5: Daily Additions (filtered to window if provided) ---
     ws = wb.create_sheet("Daily Additions")
     headers = ["Date", "Tehsil", "Village", "Issued (that day)", "Approved (that day)"]
     rows = []
@@ -2868,21 +2951,22 @@ def download_xlsx():
         for v in t["villages"]:
             dc = v.get("datedCounts") or {}
             for d in sorted(dc.keys()):
+                if d <= state["baselineDate"]: continue
+                if frm and to and not (frm <= d <= to): continue
                 e = dc[d]
-                if (e.get("issued", 0) or e.get("approved", 0)) and d > state["baselineDate"]:
+                if (e.get("issued", 0) or e.get("approved", 0)):
                     rows.append([d, t["tehsil"], v["village"],
                                  e.get("issued", 0), e.get("approved", 0)])
     rows.sort(key=lambda r: (r[0], r[1], r[2]))
     write_sheet(ws, headers, rows)
 
-    # Serialize + return
     bio = io.BytesIO()
-    wb.save(bio)
-    bio.seek(0)
+    wb.save(bio); bio.seek(0)
     today = datetime.utcnow().strftime("%Y-%m-%d")
+    name = "farmer_id_progress{}_{}.xlsx".format(tag, today)
     return Response(bio.getvalue(),
                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    headers={"Content-Disposition": f"attachment; filename=farmer_id_progress_{today}.xlsx"})
+                    headers={"Content-Disposition": "attachment; filename=" + name})
 
 
 # =========================================================================
