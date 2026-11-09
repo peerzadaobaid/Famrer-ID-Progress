@@ -178,6 +178,7 @@
         <a href="/upload" class="primary">⬆ Upload CSV</a>
         <a href="/admin/targets">🎯 Targets</a>
         <a href="/admin/camp-directors">👥 Camp Directors</a>
+        <a id="downloadXlsxBtn" href="/download/xlsx" title="Download the current view (respects the Additions-between date range)">📥 Download Excel</a>
         <a href="/logout">Logout</a>
       {% else %}
         <a href="/login" class="primary">🔒 Admin login</a>
@@ -771,10 +772,24 @@ function rerender(){
   if(document.getElementById('viewCDTehsil').classList.contains('active')) renderCDTehsils();
   if(document.getElementById('viewCDDirectors').classList.contains('active')){ var b=document.getElementById('cdDirBreadcrumb').textContent; if(b) renderCDDirectors(b); }
   if(document.getElementById('viewCDVillages').classList.contains('active')){ var bc=document.getElementById('cdVilBreadcrumb').textContent; if(bc&&bc.indexOf(' › ')>=0){ var p=bc.split(' › '); var tn=p[0].trim(), dn=p[1].trim(); for(var i=0;i<DATA.tehsils.length;i++) if(DATA.tehsils[i].tehsil===tn) for(var j=0;j<DATA.tehsils[i].villages.length;j++){ var cd=DATA.tehsils[i].villages[j].campDirector; if(cd&&cd.n===dn){ renderCDVillages(tn,cdNormName(cd.n)); return; } } } }
+  _updateDownloadHref();
+}
+
+// Keep the admin "Download Excel" link in sync with the date picker, so
+// the xlsx always reflects the Additions-between window currently on screen.
+function _updateDownloadHref(){
+  var a = document.getElementById('downloadXlsxBtn');
+  if (!a) return;  // non-admin view; button isn't rendered
+  if (addFrom && addTo) {
+    a.href = '/download/xlsx?from=' + encodeURIComponent(addFrom) + '&to=' + encodeURIComponent(addTo);
+  } else {
+    a.href = '/download/xlsx';
+  }
 }
 
 // Tehsil-wise Progress is the default open tab (v24+).
 renderTehsils();
+_updateDownloadHref();
 </script>
 </body>
 </html>
